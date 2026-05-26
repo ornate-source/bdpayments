@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BDPayments | Documentation</title>
+    <meta name="description"
+        content="Unified payment gateway package for Node.js — one API for Stripe, PayPal, Payoneer, SSLCommerz, bKash, and Nagad.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+
+<body class="dark">
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <span class="logo-text">bdpayments</span>
+                </div>
+                <div class="header-actions-sidebar">
+                    <button id="theme-toggle-desktop" class="theme-btn" aria-label="Toggle Theme">
+                        <i data-lucide="sun" class="sun-icon"></i>
+                        <i data-lucide="moon" class="moon-icon"></i>
+                    </button>
+                    <button id="sidebar-close" class="mobile-only theme-btn" aria-label="Close Menu">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <ul>
+                    <li><a href="#introduction" class="active"><i data-lucide="home"></i> Introduction</a></li>
+                    <li><a href="#installation"><i data-lucide="download"></i> Installation</a></li>
+                    <li><a href="#configuration"><i data-lucide="settings"></i> Configuration</a></li>
+                    <li><a href="#quick-start"><i data-lucide="rocket"></i> Quick Start</a></li>
+                    <li><a href="#gateways"><i data-lucide="credit-card"></i> Gateways</a></li>
+                    <li><a href="#charge"><i data-lucide="arrow-up-right"></i> Charge</a></li>
+                    <li><a href="#refund"><i data-lucide="arrow-down-left"></i> Refund</a></li>
+                    <li><a href="#retrieve"><i data-lucide="search"></i> Retrieve</a></li>
+                    <li><a href="#error-handling"><i data-lucide="alert-circle"></i> Error Handling</a></li>
+                    <li><a href="#typescript"><i data-lucide="code"></i> TypeScript</a></li>
+                    <li><a href="#api-reference"><i data-lucide="book-open"></i> API Reference</a></li>
+                    <li><a href="#env-variables"><i data-lucide="lock"></i> Env Variables</a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="content">
+            <header class="mobile-header">
+                <div class="logo">
+                    <span class="logo-text">bdpayments</span>
+                </div>
+                <div class="header-actions">
+                    <button id="theme-toggle-mobile" class="theme-btn" aria-label="Toggle Theme">
+                        <i data-lucide="sun" class="sun-icon"></i>
+                        <i data-lucide="moon" class="moon-icon"></i>
+                    </button>
+                    <button id="menu-toggle" class="theme-btn mobile-only" aria-label="Toggle Menu">
+                        <i data-lucide="menu"></i>
+                    </button>
+                </div>
+            </header>
+
+            <section id="introduction" class="section">
+                <h1>BDPayments</h1>
+                <p class="lead">A unified payment gateway package for Node.js. One API for
+                    <strong>Stripe</strong>, <strong>PayPal</strong>, <strong>Payoneer</strong>,
+                    <strong>SSLCommerz</strong>, <strong>bKash</strong>, and <strong>Nagad</strong>.
+                </p>
+                <div class="badges">
+                    <span class="badge"><i data-lucide="check-circle"></i> Node 18+</span>
+                    <span class="badge"><i data-lucide="shield"></i> TypeScript</span>
+                    <span class="badge badge-accent"><i data-lucide="zap"></i> Zero Config</span>
+                    <span class="badge badge-green"><i data-lucide="globe"></i> 6 Gateways</span>
+                    <span class="badge badge-purple"><i data-lucide="lock"></i> MIT License</span>
+                </div>
+                <p>Designed for developers who need to integrate multiple payment providers without writing
+                    gateway-specific code. Call <code>charge()</code>, <code>refund()</code>, or
+                    <code>retrieve()</code> — and let BDPayments route to the right adapter internally.
+                </p>
+            </section>
+
+            <section id="installation" class="section">
+                <h2><i data-lucide="terminal"></i> Installation</h2>
+                <p>Install the core package:</p>
+                <div class="code-block" data-lang="bash">
+                    <pre><code>npm install bdpayments</code></pre>
+                    <button class="copy-btn"><i data-lucide="copy"></i> Copy</button>
+                </div>
+                <p>Then install only the gateway SDKs you actually use:</p>
+                <div class="code-block" data-lang="bash">
+                    <pre><code># For Stripe (requires its SDK)
+npm install stripe
+
+# PayPal, Payoneer, SSLCommerz, bKash, Nagad
+# → No extra SDK needed (uses REST API via fetch)</code></pre>
+                    <button class="copy-btn"><i data-lucide="copy"></i> Copy</button>
+                </div>
+            </section>
+
+            <section id="configuration" class="section">
+                <h2><i data-lucide="settings"></i> Configuration</h2>
+                <p>BDPayments supports a <strong>three-tier credential system</strong>. Use whichever method
+                    fits your app — or combine them. Highest priority wins.</p>
+
+                <div class="tier-list">
+                    <div class="tier-item">
+                        <div class="tier-number">1</div>
+                        <div class="tier-content">
+                            <h4>Per-Call Overrides <span class="badge" style="font-size:0.65rem; padding:0.2rem 0.5rem; vertical-align: middle;">Highest Priority</span></h4>
+                            <p>Pass credentials directly in any function call. Useful for multi-tenant apps
+                                where different merchants have different keys.</p>
+                        </div>
+                    </div>
+                    <div class="tier-item">
+                        <div class="tier-number">2</div>
+                        <div class="tier-content">
+                            <h4>Global <code>configure()</code> <span class="badge badge-green" style="font-size:0.65rem; padding:0.2rem 0.5rem; vertical-align: middle;">Recommended</span></h4>
+                            <p>Call once at app startup to set credentials for all gateways you use.</p>
+                        </div>
+                    </div>
+                    <div class="tier-item">
+                        <div class="tier-number">3</div>
+                        <div class="tier-content">
+                            <h4>Environment Variables <span class="badge badge-purple" style="font-size:0.65rem; padding:0.2rem 0.5rem; vertical-align: middle;">Zero Config</span></h4>
+                            <p>Set env vars and the package reads them automatically — no code needed.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <h3>Global Configure Example</h3>
+                <div class="code-block" data-lang="javascript">
+                    <pre><code>import { configure } from 'bdpayments';
+
+configure({
+  stripe: {
+    apiKey: process.env.STRIPE_API_KEY,
+  },
+  bkash: {
+    appKey: process.env.BKASH_APP_KEY,
+    appSecret: process.env.BKASH_APP_SECRET,
+    username: process.env.BKASH_USERNAME,
+    password: process.env.BKASH_PASSWORD,
+    sandbox: true,
+  },
+  sslcommerz: {
+    storeId: process.env.SSLCOMMERZ_STORE_ID,
+    storePassword: process.env.SSLCOMMERZ_STORE_PASSWORD,
+    sandbox: true,
+  },
+});</code></pre>
+                    <button class="copy-btn"><i data-lucide="copy"></i> Copy</button>
+                </div>
+
+                <h3>Per-Call Override Example</h3>
+                <div class="code-block" data-lang="javascript">
+                    <pre><code>import { charge } from 'bdpayments';
+
+// This apiKey overrides whatever was set in configure()
+await charge({
+  gateway: 'stripe',
+  apiKey: 'sk_test_TENANT_B_KEY',
+  amount: 1000,
+  currency: 'usd',
+});</code></pre>
+                    <button class="copy-btn"><i data-lucide="copy"></i> Copy</button>
+                </div>
+            </section>
+
+            <section id="quick-start" class="section">
+                <h2><i data-lucide="play"></i> Quick Start</h2>
+                <p>Get up and running in three steps: install, configure, and call.</p>
+                <div class="code-block" data-lang="javascript">
+                    <pre><code>import { configure, charge, refund, retrieve } from 'bdpayments';
+
+// 1. Configure credentials once
+configure({
+  stripe: { apiKey: 'sk_test_...' },
+  bkash: {
+    appKey: '...', appSecret: '...',
+    username: '...', password: '...',
+    sandbox: true,
+  },
+});
+
+// 2. Charge — same function, any gateway
+const payment = await charge({
+  gateway: 'stripe',
+  amount: 1000,
+  currency: 'usd',
+  paymentMethod: 'pm_card_visa',
+  confirm: true,
+});
+
+console.log(payment.transactionId); // "pi_..."
+console.log(payment.status);        // "succeeded"
+
+// 3. Refund
+const refundResult = await refund({
+  gateway: 'stripe',
+  transactionId: payment.transactionId,
+  amount: 500,
+});
+
+// 4. Retrieve
+const details = await retrieve({
+  gateway: 'stripe',
+  transactionId: payment.transactionId,
+});</code></pre>
+                    <button class="copy-btn"><i data-lucide="copy"></i> Copy</button>
+                </div>
+            </section>
+
+            <section id="gateways" class="section">
+                <h2><i data-lucide="credit-card"></i> Supported Gateways</h2>
+                <p>Each gateway is loaded lazily — only the SDK you actually use gets imported at runtime.</p>
+
+                <div class="gateway-grid">
+                    <div class="gateway-card">
+                        <h4><i data-lucide="zap"></i> Stripe</h4>
+                        <p>PaymentIntents API. Supports payment methods, customers, metadata, and confirmations.</p>
+                        <div class="gateway-badges">
+                            <span class="badge">API Key</span>
+                            <span class="badge badge-green">SDK Required</span>
+                        </div>
+                    </div>
+                    <div class="gateway-card">
+                        <h4><i data-lucide="globe"></i> PayPal</h4>
+                        <p>Orders v2 API. Create orders, capture payments, and handle refunds via REST.</p>
+                        <div class="gateway-badges">
+                            <span class="badge">OAuth2</span>
+                            <span class="badge badge-accent">No SDK Needed</span>
+                        </div>
+                    </div>
+                    <div class="gateway-card">
+                        <h4><i data-lucide="send"></i> Payoneer</h4>
+                        <p>Payouts API v4. Create and manage mass payouts to payees worldwide.</p>
+                        <div class="gateway-badges">
+                            <span class="badge">Basic Auth</span>
+                            <span class="badge badge-accent">No SDK Needed</span>
+                        </div>
+                    </div>
+                    <div class="gateway-card">
+                        <h4><i data-lucide="shopping-bag"></i> SSLCommerz</h4>
+                        <p>Bangladesh's leading payment gateway. Session-based checkout with IPN support.</p>
+                        <div class="gateway-badges">
+                            <span class="badge">Store ID</span>
+                            <span class="badge badge-accent">No SDK Needed</span>
+                        </div>
+                    </div>
+                    <div class="gateway-card">
+                        <h4><i data-lucide="smartphone"></i> bKash</h4>
+                        <p>Tokenized checkout API. Token-grant authentication with create → execute flow.</p>
+                        <div class="gateway-badges">
+                            <span class="badge">Token Grant</span>
+                            <span class="badge badge-accent">No SDK Needed</span>
+                        </div>
+                    </div>
+                    <div class="gateway-card">
+                        <h4><i data-lucide="shield"></i> Nagad</h4>
+                        <p>RSA-encrypted checkout. Two-step initialize → complete with digital signatures.</p>
+                        <div class="gateway-badges">
+                            <span class="badge">RSA Encrypted</span>
+                            <span class="badge badge-accent">No SDK Needed</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="charge" class="section">
+                <h2><i data-lucide="arrow-up-right"></i> Charge</h2>
+                <p>Create a payment through any gateway. Pass <code>gateway</code> plus the relevant options.</p>
+
+                <h3>Stripe</h3>
+                <div class="code-block" data-lang="javascript">
+                    <pre><code>const result = await charge({
+  gateway: 'stripe',
+  amount: 2000,        // $20.00 in cents
+  currency: 'usd',
+  paymentMethod: 'pm_card_visa',
+  confirm: true,
+  description: 'Order #1234',
+  metadata: { orderId: '1234' },
+});</code></pre>
+                    <button class="copy-btn"><i data-lucide="copy"></i> Copy</button>
+                </div>
+
+                <h3>bKash</h3>
+                <div class="code-block" data-lang="javascript">
+                    <pre><code>const result = await charge({
+  gateway: 'bkash',
+  amount: 500,
+  invoiceNumber: 'INV-001',
+  payerReference: '01700000000',
+  callbackURL: 'https://example.com/bkash/callback',
+});
+
+// Redirect customer to result.bkashURL for approval</code></pre>
+                    <button class="copy-btn"><i data-lucide="copy"></i> Copy</button>
+                </div>
+
+                <h3>SSLCommerz</h3>
+                <div class="code-block" data-lang="javascript">
+                    <pre><code>const result = await charge({
+  gateway: 'sslcommerz',
+  amount: 1000,
+  currency: 'BDT',
+  transactionId: 'TXN-001',
+  successUrl: 'https://example.com/success',
+  failUrl: 'https://example.com/fail',
+  cancelUrl: 'https://example.com/cancel',
+  customerName: 'John Doe',
+  customerEmail: 'john@example.com',
+});
+
+// Redirect customer to result.gatewayPageURL</code></pre>
+                    <button class="copy-btn"><i data-lucide="copy"></i> Copy</button>
+                </div>
+
+                <h3>Nagad</h3>
+                <div class="code-block" data-lang="javascript">
+                    <pre><code>const result = await charge({
+  gateway: 'nagad',
+  amount: 500,
+  orderId: 'ORD-001',
+  callbackURL: 'https://example.com/nagad/callback',
+});
+
+// Redirect customer to result.callBackUrl</code></pre>
+                    <button class="copy-btn"><i data-lucide="copy"></i> Copy</button>
+                </div>
+
+                <h3>PayPal</h3>
+                <div class="code-block" data-lang="javascript">
+                    <pre><code>const result = await charge({
+  gateway: 'paypal',
+  amount: 25.00,
+  currency: 'USD',
+  returnUrl: 'https://example.com/paypal/return',
+  cancelUrl: 'https://example.com/paypal/cancel',
+});
+
+// Redirect customer to result.approvalUrl</code></pre>
+                    <button class="copy-btn"><i data-lucide="copy"></i> Copy</button>
+                </div>
+            </section>
+
+            <section id="refund" class="section">
+                <h2><i data-lucide="arrow-down-left"></i> Refund</h2>
+                <p>Refund a payment. Pass the <code>transactionId</code> from the original charge.</p>
+
+                <div class="code-block" data-lang="javascript">
+                    <pre><code>import { refund } from 'bdpayments';
+
+// Full refund
+const result = await refund({
+  gateway: 'stripe',
+  transactionId: 'pi_...',
+});
+
+// Partial refund
+const partial = await refund({
+  gateway: 'stripe',
+  transactionId: 'pi_...',
+  amount: 500,  // Refund $5.00
+});
+
+// bKash refund (requires trxID from execute step)
+const bkashRefund = await refund({
+  gateway: 'bkash',
+  transactionId: 'payment_id',
+  trxID: 'trx_id_from_execute',
+  amount: 200,
+  reason: 'Customer requested',
+});</code></pre>
+                    <button class="copy-btn"><i data-lucide="copy"></i> Copy</button>
+                </div>
+            </section>
+
+            <section id="retrieve" class="section">
+                <h2><i data-lucide="search"></i> Retrieve</h2>
+                <p>Retrieve payment details and status from any gateway.</p>
+
+                <div class="code-block" data-lang="javascript">
+                    <pre><code>import { retrieve } from 'bdpayments';
+
+const details = await retrieve({
+  gateway: 'stripe',
+  transactionId: 'pi_...',
+});
+
+console.log(details.status);         // "succeeded"
+console.log(details.amount);         // 1000
+console.log(details.currency);       // "usd"
+console.log(details.gatewayResponse); // Raw Stripe response</code></pre>
+                    <button class="copy-btn"><i data-lucide="copy"></i> Copy</button>
+                </div>
+
+                <h3>Normalized Response</h3>
+                <p>All functions return a consistent shape regardless of the gateway:</p>
+                <div class="code-block" data-lang="json">
+                    <pre><code>{
+  "success": true,
+  "transactionId": "pi_...",
+  "status": "succeeded",
+  "amount": 1000,
+  "currency": "usd",
+  "gatewayResponse": { /* raw gateway response */ }
+}</code></pre>
+                </div>
+            </section>
+
+            <section id="error-handling" class="section">
+                <h2><i data-lucide="alert-circle"></i> Error Handling</h2>
+                <p>BDPayments provides a structured error hierarchy for precise error handling.</p>
+
+                <div class="code-block" data-lang="javascript">
+                    <pre><code>import {
+  charge,
+  PaymentError,
+  GatewayNotFoundError,
+  ConfigurationError,
+} from 'bdpayments';
+
+try {
+  await charge({ gateway: 'stripe', amount: 1000 });
+} catch (error) {
+  if (error instanceof ConfigurationError) {
+    // Missing API keys
+    console.log('Missing:', error.missingKeys);
+    // → ["apiKey"]
+  } else if (error instanceof GatewayNotFoundError) {
+    // Unknown gateway name
+    console.log('Unsupported gateway');
+  } else if (error instanceof PaymentError) {
+    // Gateway-specific failure
+    console.log(error.gateway);       // "stripe"
+    console.log(error.code);          // "CHARGE_FAILED"
+    console.log(error.originalError); // Raw SDK error
+  }
+}</code></pre>
+                    <button class="copy-btn"><i data-lucide="copy"></i> Copy</button>
+                </div>
+
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Error Class</th>
+                                <th>Code</th>
+                                <th>When</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>PaymentError</code></td>
+                                <td><code>CHARGE_FAILED</code> / <code>REFUND_FAILED</code> / <code>RETRIEVE_FAILED</code></td>
+                                <td>Gateway API call fails</td>
+                            </tr>
+                            <tr>
+                                <td><code>GatewayNotFoundError</code></td>
+                                <td><code>GATEWAY_NOT_FOUND</code></td>
+                                <td>Invalid gateway name passed</td>
+                            </tr>
+                            <tr>
+                                <td><code>ConfigurationError</code></td>
+                                <td><code>MISSING_CREDENTIALS</code></td>
+                                <td>Required API keys are missing</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="typescript" class="section">
+                <h2><i data-lucide="code"></i> TypeScript Support</h2>
+                <p>Full type definitions are included. Options are narrowed by gateway name using discriminated unions.</p>
+                <div class="code-block" data-lang="typescript">
+                    <pre><code>import {
+  charge,
+  configure,
+  type ChargeOptions,
+  type PaymentResult,
+  type GatewayName,
+} from 'bdpayments';
+
+// TypeScript knows exactly which fields are valid
+const result: PaymentResult = await charge({
+  gateway: 'stripe',
+  amount: 1000,
+  currency: 'usd',
+  paymentMethod: 'pm_card_visa',
+  // TS will error if you add bkash-specific fields here
+});
+
+// Gateway name is a strict union type
+const gw: GatewayName = 'bkash'; // ✅
+// const gw: GatewayName = 'venmo'; // ❌ Type error</code></pre>
+                    <button class="copy-btn"><i data-lucide="copy"></i> Copy</button>
+                </div>
+            </section>
+
+            <section id="api-reference" class="section">
+                <h2><i data-lucide="book-open"></i> API Reference</h2>
+
+                <h3>Functions</h3>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Function</th>
+                                <th>Description</th>
+                                <th>Returns</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>configure(configs)</code></td>
+                                <td>Set global credentials for one or more gateways.</td>
+                                <td><code>void</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>clearConfig()</code></td>
+                                <td>Clear all stored global configuration.</td>
+                                <td><code>void</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>charge(options)</code></td>
+                                <td>Create a payment/charge through any gateway.</td>
+                                <td><code>Promise&lt;PaymentResult&gt;</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>refund(options)</code></td>
+                                <td>Refund a previous payment.</td>
+                                <td><code>Promise&lt;RefundResult&gt;</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>retrieve(options)</code></td>
+                                <td>Retrieve payment details and status.</td>
+                                <td><code>Promise&lt;RetrieveResult&gt;</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>getSupportedGateways()</code></td>
+                                <td>Returns array of supported gateway names.</td>
+                                <td><code>string[]</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3>Gateway Capabilities</h3>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Gateway</th>
+                                <th>Charge</th>
+                                <th>Refund</th>
+                                <th>Retrieve</th>
+                                <th>Auth Method</th>
+                                <th>SDK</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Stripe</td>
+                                <td>✅ PaymentIntents</td>
+                                <td>✅</td>
+                                <td>✅</td>
+                                <td>API Key</td>
+                                <td><code>stripe</code></td>
+                            </tr>
+                            <tr>
+                                <td>PayPal</td>
+                                <td>✅ Orders v2</td>
+                                <td>✅</td>
+                                <td>✅</td>
+                                <td>OAuth2</td>
+                                <td>fetch</td>
+                            </tr>
+                            <tr>
+                                <td>Payoneer</td>
+                                <td>✅ Payouts</td>
+                                <td>✅ Cancel</td>
+                                <td>✅</td>
+                                <td>Basic Auth</td>
+                                <td>fetch</td>
+                            </tr>
+                            <tr>
+                                <td>SSLCommerz</td>
+                                <td>✅ Session</td>
+                                <td>✅</td>
+                                <td>✅</td>
+                                <td>Store ID/Password</td>
+                                <td>fetch</td>
+                            </tr>
+                            <tr>
+                                <td>bKash</td>
+                                <td>✅ Tokenized</td>
+                                <td>✅</td>
+                                <td>✅</td>
+                                <td>Token Grant</td>
+                                <td>fetch</td>
+                            </tr>
+                            <tr>
+                                <td>Nagad</td>
+                                <td>✅ Checkout</td>
+                                <td>✅</td>
+                                <td>✅</td>
+                                <td>RSA Encrypted</td>
+                                <td>fetch</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="env-variables" class="section">
+                <h2><i data-lucide="lock"></i> Environment Variables</h2>
+                <p>Set these environment variables and skip <code>configure()</code> entirely. The package reads
+                    them as a fallback when no credentials are provided programmatically.</p>
+
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Gateway</th>
+                                <th>Environment Variables</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Stripe</td>
+                                <td><code>STRIPE_API_KEY</code></td>
+                            </tr>
+                            <tr>
+                                <td>PayPal</td>
+                                <td><code>PAYPAL_CLIENT_ID</code>, <code>PAYPAL_CLIENT_SECRET</code>, <code>PAYPAL_SANDBOX</code></td>
+                            </tr>
+                            <tr>
+                                <td>Payoneer</td>
+                                <td><code>PAYONEER_PARTNER_ID</code>, <code>PAYONEER_USERNAME</code>, <code>PAYONEER_API_PASSWORD</code>, <code>PAYONEER_SANDBOX</code></td>
+                            </tr>
+                            <tr>
+                                <td>SSLCommerz</td>
+                                <td><code>SSLCOMMERZ_STORE_ID</code>, <code>SSLCOMMERZ_STORE_PASSWORD</code>, <code>SSLCOMMERZ_SANDBOX</code></td>
+                            </tr>
+                            <tr>
+                                <td>bKash</td>
+                                <td><code>BKASH_APP_KEY</code>, <code>BKASH_APP_SECRET</code>, <code>BKASH_USERNAME</code>, <code>BKASH_PASSWORD</code>, <code>BKASH_SANDBOX</code></td>
+                            </tr>
+                            <tr>
+                                <td>Nagad</td>
+                                <td><code>NAGAD_MERCHANT_ID</code>, <code>NAGAD_PUBLIC_KEY</code>, <code>NAGAD_PRIVATE_KEY</code>, <code>NAGAD_SANDBOX</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3>Example <code>.env</code> file</h3>
+                <div class="code-block" data-lang="text">
+                    <pre><code>STRIPE_API_KEY=sk_test_...
+
+BKASH_APP_KEY=your_app_key
+BKASH_APP_SECRET=your_app_secret
+BKASH_USERNAME=your_username
+BKASH_PASSWORD=your_password
+BKASH_SANDBOX=true
+
+SSLCOMMERZ_STORE_ID=your_store_id
+SSLCOMMERZ_STORE_PASSWORD=your_store_password
+SSLCOMMERZ_SANDBOX=true</code></pre>
+                    <button class="copy-btn"><i data-lucide="copy"></i> Copy</button>
+                </div>
+            </section>
+
+            <footer class="main-footer">
+                <p>Released under the <a href="../LICENSE" target="_blank">MIT License</a>. &copy; 2024 Sabbir Mahmud</p>
+            </footer>
+        </main>
+    </div>
+
+    <script>
+        // Initialize Lucide icons on load and after DOM content is ready
+        window.addEventListener('load', () => {
+            lucide.createIcons();
+            updateThemeIcons();
+        });
+
+        // Theme Toggle Logic
+        const body = document.body;
+        const themeToggles = [
+            document.getElementById('theme-toggle-desktop'),
+            document.getElementById('theme-toggle-mobile')
+        ];
+
+        // Check for saved theme
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        body.className = savedTheme;
+
+        themeToggles.forEach(toggle => {
+            if (toggle) {
+                toggle.addEventListener('click', () => {
+                    const isDark = body.classList.contains('dark');
+                    body.className = isDark ? 'light' : 'dark';
+                    localStorage.setItem('theme', body.className);
+                    updateThemeIcons();
+                });
+            }
+        });
+
+        function updateThemeIcons() {
+            const isDark = body.classList.contains('dark');
+            document.querySelectorAll('.sun-icon').forEach(icon => {
+                icon.style.display = isDark ? 'block' : 'none';
+            });
+            document.querySelectorAll('.moon-icon').forEach(icon => {
+                icon.style.display = isDark ? 'none' : 'block';
+            });
+            lucide.createIcons();
+        }
+
+        // Copy to clipboard
+        document.querySelectorAll('.copy-btn').forEach(button => {
+            button.addEventListener('click', () => {
+                const code = button.parentElement.querySelector('code').innerText;
+                navigator.clipboard.writeText(code).then(() => {
+                    const originalHTML = button.innerHTML;
+                    button.innerHTML = '<i data-lucide="check"></i> Copied!';
+                    lucide.createIcons();
+                    button.classList.add('copied');
+                    setTimeout(() => {
+                        button.innerHTML = originalHTML;
+                        lucide.createIcons();
+                        button.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+
+        // Mobile Menu Toggle
+        const menuToggle = document.getElementById('menu-toggle');
+        const sidebarClose = document.getElementById('sidebar-close');
+        const sidebar = document.querySelector('.sidebar');
+
+        if (menuToggle) {
+            menuToggle.addEventListener('click', () => {
+                sidebar.classList.add('active');
+                body.style.overflow = 'hidden';
+            });
+        }
+
+        if (sidebarClose) {
+            sidebarClose.addEventListener('click', () => {
+                sidebar.classList.remove('active');
+                body.style.overflow = '';
+            });
+        }
+
+        // Active Link on Scroll
+        const sections = document.querySelectorAll('.section');
+        const navLinks = document.querySelectorAll('.sidebar-nav a');
+        window.addEventListener('scroll', () => {
+            let current = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                if (pageYOffset >= (sectionTop - 150)) {
+                    current = section.getAttribute('id');
+                }
+            });
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+                if (current && link.getAttribute('href') === `#${current}`) {
+                    link.classList.add('active');
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>
