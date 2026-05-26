@@ -1,0 +1,52 @@
+{
+  "name": "bdpayments",
+  "version": "1.0.0",
+  "description": "Centralized payment gateway abstraction for Stripe, PayPal, Payoneer, SSLCommerz, bKash, and Nagad. One unified API for charge, refund, and retrieve.",
+  "main": "src/index.js",
+  "types": "src/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  },
+  "author": "Sabbir Mahmud",
+  "license": "MIT",
+  "homepage": "https://ornate-source.github.io/BDPayments/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ornate-source/BDPayments.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ornate-source/BDPayments/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "peerDependencies": {
+    "stripe": "^17.0.0",
+    "@paypal/paypal-server-sdk": "^2.0.0",
+    "sslcommerz-lts": "^1.1.0"
+  },
+  "peerDependenciesMeta": {
+    "stripe": { "optional": true },
+    "@paypal/paypal-server-sdk": { "optional": true },
+    "sslcommerz-lts": { "optional": true }
+  },
+  "devDependencies": {
+    "stripe": "^17.0.0",
+    "@paypal/paypal-server-sdk": "^2.0.0",
+    "sslcommerz-lts": "^1.1.0",
+    "typescript": "^5.8.2"
+  },
+  "keywords": [
+    "payments",
+    "payment-gateway",
+    "stripe",
+    "paypal",
+    "payoneer",
+    "sslcommerz",
+    "bkash",
+    "nagad",
+    "bangladesh",
+    "unified-payments"
+  ]
+}
