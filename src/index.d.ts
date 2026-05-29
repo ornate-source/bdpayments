@@ -7,7 +7,6 @@
 export type GatewayName =
   | "stripe"
   | "paypal"
-  | "payoneer"
   | "sslcommerz"
   | "bkash"
   | "nagad";
@@ -24,12 +23,7 @@ export interface PayPalConfig {
   sandbox?: boolean;
 }
 
-export interface PayoneerConfig {
-  partnerId: string;
-  username: string;
-  apiPassword: string;
-  sandbox?: boolean;
-}
+
 
 export interface SSLCommerzConfig {
   storeId: string;
@@ -55,7 +49,7 @@ export interface NagadConfig {
 export interface GatewayConfigs {
   stripe?: StripeConfig;
   paypal?: PayPalConfig;
-  payoneer?: PayoneerConfig;
+
   sslcommerz?: SSLCommerzConfig;
   bkash?: BkashConfig;
   nagad?: NagadConfig;
@@ -105,15 +99,7 @@ export interface PayPalChargeOptions extends BaseChargeOptions {
   capture?: boolean;
 }
 
-export interface PayoneerChargeOptions extends BaseChargeOptions {
-  gateway: "payoneer";
-  partnerId?: string;
-  username?: string;
-  apiPassword?: string;
-  sandbox?: boolean;
-  payeeId: string;
-  clientReferenceId?: string;
-}
+
 
 export interface SSLCommerzChargeOptions extends BaseChargeOptions {
   gateway: "sslcommerz";
@@ -164,7 +150,7 @@ export interface NagadChargeOptions extends BaseChargeOptions {
 export type ChargeOptions =
   | StripeChargeOptions
   | PayPalChargeOptions
-  | PayoneerChargeOptions
+
   | SSLCommerzChargeOptions
   | BkashChargeOptions
   | NagadChargeOptions;
@@ -193,13 +179,7 @@ export interface PayPalRefundOptions extends BaseRefundOptions {
   currency?: string;
 }
 
-export interface PayoneerRefundOptions extends BaseRefundOptions {
-  gateway: "payoneer";
-  partnerId?: string;
-  username?: string;
-  apiPassword?: string;
-  sandbox?: boolean;
-}
+
 
 export interface SSLCommerzRefundOptions extends BaseRefundOptions {
   gateway: "sslcommerz";
@@ -236,7 +216,7 @@ export interface NagadRefundOptions extends BaseRefundOptions {
 export type RefundOptions =
   | StripeRefundOptions
   | PayPalRefundOptions
-  | PayoneerRefundOptions
+
   | SSLCommerzRefundOptions
   | BkashRefundOptions
   | NagadRefundOptions;

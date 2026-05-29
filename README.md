@@ -5,7 +5,7 @@ A unified payment gateway package for Node.js. One API for multiple payment prov
 [![Node Version](https://img.shields.io/badge/Node-18%2B-blue)](https://nodejs.org)
 [![License](https://img.shields.io/badge/License-MIT-yellow)](https://opensource.org/licenses/MIT)
 
-Supports **Stripe**, **PayPal**, **Payoneer**, **SSLCommerz**, **bKash**, and **Nagad** through a single, consistent interface.
+Supports **Stripe**, **PayPal**, **SSLCommerz**, **bKash**, and **Nagad** through a single, consistent interface.
 
 ---
 
@@ -124,7 +124,6 @@ Three ways to provide API keys (highest priority wins):
 |---------|-----------|
 | Stripe | `STRIPE_API_KEY` |
 | PayPal | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_SANDBOX` |
-| Payoneer | `PAYONEER_PARTNER_ID`, `PAYONEER_USERNAME`, `PAYONEER_API_PASSWORD`, `PAYONEER_SANDBOX` |
 | SSLCommerz | `SSLCOMMERZ_STORE_ID`, `SSLCOMMERZ_STORE_PASSWORD`, `SSLCOMMERZ_SANDBOX` |
 | bKash | `BKASH_APP_KEY`, `BKASH_APP_SECRET`, `BKASH_USERNAME`, `BKASH_PASSWORD`, `BKASH_SANDBOX` |
 | Nagad | `NAGAD_MERCHANT_ID`, `NAGAD_PUBLIC_KEY`, `NAGAD_PRIVATE_KEY`, `NAGAD_SANDBOX` |
@@ -135,7 +134,6 @@ Three ways to provide API keys (highest priority wins):
 |---------|--------|--------|----------|-------------|
 | Stripe | ✅ PaymentIntents | ✅ | ✅ | API Key |
 | PayPal | ✅ Orders v2 | ✅ | ✅ | OAuth2 |
-| Payoneer | ✅ Payouts | ✅ Cancel | ✅ | Basic Auth |
 | SSLCommerz | ✅ Session | ✅ | ✅ | Store ID/Password |
 | bKash | ✅ Tokenized | ✅ | ✅ | Token Grant |
 | Nagad | ✅ Checkout | ✅ | ✅ | RSA Encrypted |

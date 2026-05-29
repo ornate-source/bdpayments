@@ -19,12 +19,7 @@ const ENV_MAP = {
     clientSecret: "PAYPAL_CLIENT_SECRET",
     sandbox: "PAYPAL_SANDBOX",
   },
-  payoneer: {
-    partnerId: "PAYONEER_PARTNER_ID",
-    username: "PAYONEER_USERNAME",
-    apiPassword: "PAYONEER_API_PASSWORD",
-    sandbox: "PAYONEER_SANDBOX",
-  },
+
   sslcommerz: {
     storeId: "SSLCOMMERZ_STORE_ID",
     storePassword: "SSLCOMMERZ_STORE_PASSWORD",
@@ -52,7 +47,7 @@ const ENV_MAP = {
 const REQUIRED_KEYS = {
   stripe: ["apiKey"],
   paypal: ["clientId", "clientSecret"],
-  payoneer: ["partnerId", "username", "apiPassword"],
+
   sslcommerz: ["storeId", "storePassword"],
   bkash: ["appKey", "appSecret", "username", "password"],
   nagad: ["merchantId", "publicKey", "privateKey"],

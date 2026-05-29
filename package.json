@@ -1,7 +1,7 @@
 {
   "name": "bdpayments",
   "version": "1.0.0",
-  "description": "Centralized payment gateway abstraction for Stripe, PayPal, Payoneer, SSLCommerz, bKash, and Nagad. One unified API for charge, refund, and retrieve.",
+  "description": "Centralized payment gateway abstraction for Stripe, PayPal, SSLCommerz, bKash, and Nagad. One unified API for charge, refund, and retrieve.",
   "main": "src/index.js",
   "types": "src/index.d.ts",
   "type": "module",
@@ -48,7 +48,6 @@
     "payment-gateway",
     "stripe",
     "paypal",
-    "payoneer",
     "sslcommerz",
     "bkash",
     "nagad",

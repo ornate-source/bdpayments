@@ -128,6 +128,32 @@ body {
     border-right: 2px solid var(--primary);
 }
 
+/* Submenu */
+.sidebar-nav .submenu {
+    list-style: none;
+    margin-left: 1.5rem;
+    padding-top: 0.2rem;
+    border-left: 1px solid var(--border);
+}
+
+.sidebar-nav .submenu a {
+    padding: 0.4rem 1rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.sidebar-nav .submenu a:hover {
+    color: var(--text);
+    background-color: transparent;
+}
+
+.sidebar-nav .submenu a.active {
+    color: var(--primary);
+    border: none;
+    background-color: transparent;
+    font-weight: 600;
+}
+
 /* Main Content */
 .content {
     margin-left: var(--sidebar-width);

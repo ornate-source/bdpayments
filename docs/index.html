@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BDPayments | Documentation</title>
     <meta name="description"
-        content="Unified payment gateway package for Node.js — one API for Stripe, PayPal, Payoneer, SSLCommerz, bKash, and Nagad.">
+        content="Unified payment gateway package for Node.js — one API for Stripe, PayPal, SSLCommerz, bKash, and Nagad.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -41,7 +41,16 @@
                     <li><a href="#installation"><i data-lucide="download"></i> Installation</a></li>
                     <li><a href="#configuration"><i data-lucide="settings"></i> Configuration</a></li>
                     <li><a href="#quick-start"><i data-lucide="rocket"></i> Quick Start</a></li>
-                    <li><a href="#gateways"><i data-lucide="credit-card"></i> Gateways</a></li>
+                    <li>
+                        <a href="#gateways"><i data-lucide="credit-card"></i> Gateways</a>
+                        <ul class="submenu">
+                            <li><a href="#gateway-stripe">Stripe</a></li>
+                            <li><a href="#gateway-paypal">PayPal</a></li>
+                            <li><a href="#gateway-sslcommerz">SSLCommerz</a></li>
+                            <li><a href="#gateway-bkash">bKash</a></li>
+                            <li><a href="#gateway-nagad">Nagad</a></li>
+                        </ul>
+                    </li>
                     <li><a href="#charge"><i data-lucide="arrow-up-right"></i> Charge</a></li>
                     <li><a href="#refund"><i data-lucide="arrow-down-left"></i> Refund</a></li>
                     <li><a href="#retrieve"><i data-lucide="search"></i> Retrieve</a></li>
@@ -73,14 +82,14 @@
             <section id="introduction" class="section">
                 <h1>BDPayments</h1>
                 <p class="lead">A unified payment gateway package for Node.js. One API for
-                    <strong>Stripe</strong>, <strong>PayPal</strong>, <strong>Payoneer</strong>,
+                    <strong>Stripe</strong>, <strong>PayPal</strong>,
                     <strong>SSLCommerz</strong>, <strong>bKash</strong>, and <strong>Nagad</strong>.
                 </p>
                 <div class="badges">
                     <span class="badge"><i data-lucide="check-circle"></i> Node 18+</span>
                     <span class="badge"><i data-lucide="shield"></i> TypeScript</span>
                     <span class="badge badge-accent"><i data-lucide="zap"></i> Zero Config</span>
-                    <span class="badge badge-green"><i data-lucide="globe"></i> 6 Gateways</span>
+                    <span class="badge badge-green"><i data-lucide="globe"></i> 5 Gateways</span>
                     <span class="badge badge-purple"><i data-lucide="lock"></i> MIT License</span>
                 </div>
                 <p>Designed for developers who need to integrate multiple payment providers without writing
@@ -101,7 +110,7 @@
                     <pre><code># For Stripe (requires its SDK)
 npm install stripe
 
-# PayPal, Payoneer, SSLCommerz, bKash, Nagad
+# PayPal, SSLCommerz, bKash, Nagad
 # → No extra SDK needed (uses REST API via fetch)</code></pre>
                     <button class="copy-btn"><i data-lucide="copy"></i> Copy</button>
                 </div>
@@ -241,14 +250,7 @@ const details = await retrieve({
                             <span class="badge badge-accent">No SDK Needed</span>
                         </div>
                     </div>
-                    <div class="gateway-card">
-                        <h4><i data-lucide="send"></i> Payoneer</h4>
-                        <p>Payouts API v4. Create and manage mass payouts to payees worldwide.</p>
-                        <div class="gateway-badges">
-                            <span class="badge">Basic Auth</span>
-                            <span class="badge badge-accent">No SDK Needed</span>
-                        </div>
-                    </div>
+
                     <div class="gateway-card">
                         <h4><i data-lucide="shopping-bag"></i> SSLCommerz</h4>
                         <p>Bangladesh's leading payment gateway. Session-based checkout with IPN support.</p>
@@ -273,6 +275,158 @@ const details = await retrieve({
                             <span class="badge badge-accent">No SDK Needed</span>
                         </div>
                     </div>
+                </div>
+            </section>
+
+            <section id="gateway-stripe" class="section">
+                <h2><i data-lucide="zap"></i> Stripe Integration Guide</h2>
+                <p>Complete guide to using Stripe with BDPayments.</p>
+                <h3>Configuration</h3>
+                <div class="code-block" data-lang="javascript">
+                    <pre><code>import { configure } from 'bdpayments';
+
+configure({
+  stripe: { apiKey: 'sk_test_...' }
+});</code></pre>
+                    <button class="copy-btn"><i data-lucide="copy"></i> Copy</button>
+                </div>
+                <h3>Charging</h3>
+                <div class="code-block" data-lang="javascript">
+                    <pre><code>const payment = await charge({
+  gateway: 'stripe',
+  amount: 1000, // Amount in smallest unit (e.g., cents for USD)
+  currency: 'usd',
+  paymentMethod: 'pm_card_visa',
+  confirm: true,
+  description: 'Payment for Order #1234'
+});</code></pre>
+                    <button class="copy-btn"><i data-lucide="copy"></i> Copy</button>
+                </div>
+            </section>
+
+            <section id="gateway-paypal" class="section">
+                <h2><i data-lucide="globe"></i> PayPal Integration Guide</h2>
+                <p>Complete guide to using PayPal with BDPayments.</p>
+                <h3>Configuration</h3>
+                <div class="code-block" data-lang="javascript">
+                    <pre><code>import { configure } from 'bdpayments';
+
+configure({
+  paypal: { 
+    clientId: '...',
+    clientSecret: '...',
+    sandbox: true 
+  }
+});</code></pre>
+                    <button class="copy-btn"><i data-lucide="copy"></i> Copy</button>
+                </div>
+                <h3>Charging</h3>
+                <div class="code-block" data-lang="javascript">
+                    <pre><code>const payment = await charge({
+  gateway: 'paypal',
+  amount: 25.00,
+  currency: 'USD',
+  returnUrl: 'https://example.com/return',
+  cancelUrl: 'https://example.com/cancel'
+});
+// The payment response includes approvalUrl to redirect the user to PayPal.</code></pre>
+                    <button class="copy-btn"><i data-lucide="copy"></i> Copy</button>
+                </div>
+            </section>
+
+            <section id="gateway-sslcommerz" class="section">
+                <h2><i data-lucide="shopping-bag"></i> SSLCommerz Integration Guide</h2>
+                <p>Complete guide to using SSLCommerz with BDPayments.</p>
+                <h3>Configuration</h3>
+                <div class="code-block" data-lang="javascript">
+                    <pre><code>import { configure } from 'bdpayments';
+
+configure({
+  sslcommerz: { 
+    storeId: '...',
+    storePassword: '...',
+    sandbox: true 
+  }
+});</code></pre>
+                    <button class="copy-btn"><i data-lucide="copy"></i> Copy</button>
+                </div>
+                <h3>Charging</h3>
+                <div class="code-block" data-lang="javascript">
+                    <pre><code>const payment = await charge({
+  gateway: 'sslcommerz',
+  amount: 1000,
+  currency: 'BDT',
+  transactionId: 'TXN-001',
+  successUrl: 'https://example.com/success',
+  failUrl: 'https://example.com/fail',
+  cancelUrl: 'https://example.com/cancel',
+  customerName: 'John Doe',
+  customerEmail: 'john@example.com'
+});
+// Use payment.gatewayPageURL to redirect the customer for payment.</code></pre>
+                    <button class="copy-btn"><i data-lucide="copy"></i> Copy</button>
+                </div>
+            </section>
+
+            <section id="gateway-bkash" class="section">
+                <h2><i data-lucide="smartphone"></i> bKash Integration Guide</h2>
+                <p>Complete guide to using bKash with BDPayments.</p>
+                <h3>Configuration</h3>
+                <div class="code-block" data-lang="javascript">
+                    <pre><code>import { configure } from 'bdpayments';
+
+configure({
+  bkash: { 
+    appKey: '...',
+    appSecret: '...',
+    username: '...',
+    password: '...',
+    sandbox: true 
+  }
+});</code></pre>
+                    <button class="copy-btn"><i data-lucide="copy"></i> Copy</button>
+                </div>
+                <h3>Charging</h3>
+                <div class="code-block" data-lang="javascript">
+                    <pre><code>const payment = await charge({
+  gateway: 'bkash',
+  amount: 500,
+  invoiceNumber: 'INV-001',
+  payerReference: '01700000000',
+  callbackURL: 'https://example.com/bkash/callback'
+});
+// Redirect the customer to payment.bkashURL.</code></pre>
+                    <button class="copy-btn"><i data-lucide="copy"></i> Copy</button>
+                </div>
+            </section>
+
+            <section id="gateway-nagad" class="section">
+                <h2><i data-lucide="shield"></i> Nagad Integration Guide</h2>
+                <p>Complete guide to using Nagad with BDPayments.</p>
+                <h3>Configuration</h3>
+                <div class="code-block" data-lang="javascript">
+                    <pre><code>import { configure } from 'bdpayments';
+
+configure({
+  nagad: { 
+    merchantId: '...',
+    publicKey: '...',
+    privateKey: '...',
+    sandbox: true 
+  }
+});</code></pre>
+                    <button class="copy-btn"><i data-lucide="copy"></i> Copy</button>
+                </div>
+                <h3>Charging</h3>
+                <div class="code-block" data-lang="javascript">
+                    <pre><code>const payment = await charge({
+  gateway: 'nagad',
+  amount: 500,
+  orderId: 'ORD-001',
+  callbackURL: 'https://example.com/nagad/callback'
+});
+// Use payment.callBackUrl to redirect customer.</code></pre>
+                    <button class="copy-btn"><i data-lucide="copy"></i> Copy</button>
                 </div>
             </section>
 
@@ -587,14 +741,7 @@ const gw: GatewayName = 'bkash'; // ✅
                                 <td>OAuth2</td>
                                 <td>fetch</td>
                             </tr>
-                            <tr>
-                                <td>Payoneer</td>
-                                <td>✅ Payouts</td>
-                                <td>✅ Cancel</td>
-                                <td>✅</td>
-                                <td>Basic Auth</td>
-                                <td>fetch</td>
-                            </tr>
+
                             <tr>
                                 <td>SSLCommerz</td>
                                 <td>✅ Session</td>
@@ -646,10 +793,7 @@ const gw: GatewayName = 'bkash'; // ✅
                                 <td>PayPal</td>
                                 <td><code>PAYPAL_CLIENT_ID</code>, <code>PAYPAL_CLIENT_SECRET</code>, <code>PAYPAL_SANDBOX</code></td>
                             </tr>
-                            <tr>
-                                <td>Payoneer</td>
-                                <td><code>PAYONEER_PARTNER_ID</code>, <code>PAYONEER_USERNAME</code>, <code>PAYONEER_API_PASSWORD</code>, <code>PAYONEER_SANDBOX</code></td>
-                            </tr>
+
                             <tr>
                                 <td>SSLCommerz</td>
                                 <td><code>SSLCOMMERZ_STORE_ID</code>, <code>SSLCOMMERZ_STORE_PASSWORD</code>, <code>SSLCOMMERZ_SANDBOX</code></td>

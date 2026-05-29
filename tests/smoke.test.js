@@ -33,7 +33,6 @@ describe("BDPayments exports", () => {
     assert.ok(Array.isArray(gateways));
     assert.ok(gateways.includes("stripe"));
     assert.ok(gateways.includes("paypal"));
-    assert.ok(gateways.includes("payoneer"));
     assert.ok(gateways.includes("sslcommerz"));
     assert.ok(gateways.includes("bkash"));
     assert.ok(gateways.includes("nagad"));
@@ -46,7 +45,6 @@ describe("Gateway registry", () => {
     const gateways = [
       "stripe",
       "paypal",
-      "payoneer",
       "sslcommerz",
       "bkash",
       "nagad",

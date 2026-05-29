@@ -7,7 +7,6 @@ import { GatewayNotFoundError } from "../errors.js";
 const gateways = {
   stripe: () => import("./stripe.js"),
   paypal: () => import("./paypal.js"),
-  payoneer: () => import("./payoneer.js"),
   sslcommerz: () => import("./sslcommerz.js"),
   bkash: () => import("./bkash.js"),
   nagad: () => import("./nagad.js"),
