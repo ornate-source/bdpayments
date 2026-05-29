@@ -22,9 +22,9 @@
     "node": ">=18.0.0"
   },
   "peerDependencies": {
-    "stripe": "^17.0.0",
     "@paypal/paypal-server-sdk": "^2.0.0",
-    "sslcommerz-lts": "^1.1.0"
+    "sslcommerz-lts": "^1.1.0",
+    "stripe": "^17.0.0"
   },
   "peerDependenciesMeta": {
     "stripe": {
@@ -38,9 +38,9 @@
     }
   },
   "devDependencies": {
-    "stripe": "^17.0.0",
     "@paypal/paypal-server-sdk": "^2.0.0",
     "sslcommerz-lts": "^1.1.0",
+    "stripe": "^17.7.0",
     "typescript": "^5.8.2"
   },
   "keywords": [
