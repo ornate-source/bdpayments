@@ -32,7 +32,6 @@ describe("BDPayments exports", () => {
     const gateways = mod.getSupportedGateways();
     assert.ok(Array.isArray(gateways));
     assert.ok(gateways.includes("stripe"));
-    assert.ok(gateways.includes("paypal"));
     assert.ok(gateways.includes("sslcommerz"));
     assert.ok(gateways.includes("bkash"));
     assert.ok(gateways.includes("nagad"));
@@ -44,7 +43,6 @@ describe("Gateway registry", () => {
     const { getGateway } = await import("../src/gateways/index.js");
     const gateways = [
       "stripe",
-      "paypal",
       "sslcommerz",
       "bkash",
       "nagad",

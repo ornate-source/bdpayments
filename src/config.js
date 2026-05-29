@@ -14,11 +14,7 @@ const ENV_MAP = {
   stripe: {
     apiKey: "STRIPE_API_KEY",
   },
-  paypal: {
-    clientId: "PAYPAL_CLIENT_ID",
-    clientSecret: "PAYPAL_CLIENT_SECRET",
-    sandbox: "PAYPAL_SANDBOX",
-  },
+
 
   sslcommerz: {
     storeId: "SSLCOMMERZ_STORE_ID",
@@ -46,7 +42,6 @@ const ENV_MAP = {
  */
 const REQUIRED_KEYS = {
   stripe: ["apiKey"],
-  paypal: ["clientId", "clientSecret"],
 
   sslcommerz: ["storeId", "storePassword"],
   bkash: ["appKey", "appSecret", "username", "password"],

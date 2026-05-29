@@ -5,7 +5,7 @@ A unified payment gateway package for Node.js. One API for multiple payment prov
 [![Node Version](https://img.shields.io/badge/Node-18%2B-blue)](https://nodejs.org)
 [![License](https://img.shields.io/badge/License-MIT-yellow)](https://opensource.org/licenses/MIT)
 
-Supports **Stripe**, **PayPal**, **SSLCommerz**, **bKash**, and **Nagad** through a single, consistent interface.
+Supports **Stripe**, **SSLCommerz**, **bKash**, and **Nagad** through a single, consistent interface.
 
 ---
 
@@ -21,7 +21,7 @@ Then install only the gateway SDKs you need:
 # For Stripe
 npm install stripe
 
-# For PayPal, SSLCommerz — no extra SDK needed (uses REST API via fetch)
+# SSLCommerz — no extra SDK needed (uses REST API via fetch)
 
 # bKash & Nagad — no extra SDK needed (uses REST API via fetch)
 ```
@@ -123,7 +123,6 @@ Three ways to provide API keys (highest priority wins):
 | Gateway | Variables |
 |---------|-----------|
 | Stripe | `STRIPE_API_KEY` |
-| PayPal | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_SANDBOX` |
 | SSLCommerz | `SSLCOMMERZ_STORE_ID`, `SSLCOMMERZ_STORE_PASSWORD`, `SSLCOMMERZ_SANDBOX` |
 | bKash | `BKASH_APP_KEY`, `BKASH_APP_SECRET`, `BKASH_USERNAME`, `BKASH_PASSWORD`, `BKASH_SANDBOX` |
 | Nagad | `NAGAD_MERCHANT_ID`, `NAGAD_PUBLIC_KEY`, `NAGAD_PRIVATE_KEY`, `NAGAD_SANDBOX` |
@@ -133,7 +132,6 @@ Three ways to provide API keys (highest priority wins):
 | Gateway | Charge | Refund | Retrieve | Auth Method |
 |---------|--------|--------|----------|-------------|
 | Stripe | ✅ PaymentIntents | ✅ | ✅ | API Key |
-| PayPal | ✅ Orders v2 | ✅ | ✅ | OAuth2 |
 | SSLCommerz | ✅ Session | ✅ | ✅ | Store ID/Password |
 | bKash | ✅ Tokenized | ✅ | ✅ | Token Grant |
 | Nagad | ✅ Checkout | ✅ | ✅ | RSA Encrypted |

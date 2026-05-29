@@ -6,7 +6,6 @@
 
 export type GatewayName =
   | "stripe"
-  | "paypal"
   | "sslcommerz"
   | "bkash"
   | "nagad";
@@ -17,11 +16,7 @@ export interface StripeConfig {
   apiKey: string;
 }
 
-export interface PayPalConfig {
-  clientId: string;
-  clientSecret: string;
-  sandbox?: boolean;
-}
+
 
 
 
@@ -48,8 +43,6 @@ export interface NagadConfig {
 
 export interface GatewayConfigs {
   stripe?: StripeConfig;
-  paypal?: PayPalConfig;
-
   sslcommerz?: SSLCommerzConfig;
   bkash?: BkashConfig;
   nagad?: NagadConfig;
@@ -89,15 +82,7 @@ export interface StripeChargeOptions extends BaseChargeOptions {
   metadata?: Record<string, string>;
 }
 
-export interface PayPalChargeOptions extends BaseChargeOptions {
-  gateway: "paypal";
-  clientId?: string;
-  clientSecret?: string;
-  sandbox?: boolean;
-  returnUrl?: string;
-  cancelUrl?: string;
-  capture?: boolean;
-}
+
 
 
 
@@ -149,8 +134,6 @@ export interface NagadChargeOptions extends BaseChargeOptions {
 
 export type ChargeOptions =
   | StripeChargeOptions
-  | PayPalChargeOptions
-
   | SSLCommerzChargeOptions
   | BkashChargeOptions
   | NagadChargeOptions;
@@ -171,13 +154,7 @@ export interface StripeRefundOptions extends BaseRefundOptions {
   apiKey?: string;
 }
 
-export interface PayPalRefundOptions extends BaseRefundOptions {
-  gateway: "paypal";
-  clientId?: string;
-  clientSecret?: string;
-  sandbox?: boolean;
-  currency?: string;
-}
+
 
 
 
@@ -215,8 +192,6 @@ export interface NagadRefundOptions extends BaseRefundOptions {
 
 export type RefundOptions =
   | StripeRefundOptions
-  | PayPalRefundOptions
-
   | SSLCommerzRefundOptions
   | BkashRefundOptions
   | NagadRefundOptions;
@@ -243,8 +218,6 @@ export interface PaymentResult {
   amount: number;
   currency: string | null;
   gatewayResponse: any;
-  /** PayPal-specific: URL for customer approval */
-  approvalUrl?: string;
   /** SSLCommerz-specific: Gateway redirect URL */
   gatewayPageURL?: string;
   /** bKash-specific: bKash checkout URL */
