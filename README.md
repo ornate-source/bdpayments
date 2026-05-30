@@ -108,6 +108,20 @@ const result = await retrieve({
 console.log(result.status);  // e.g. "succeeded"
 ```
 
+### 5. Execute
+
+```javascript
+import { execute } from 'bdpayments';
+
+// bKash (execute tokenized payment)
+const result = await execute({
+  gateway: 'bkash',
+  paymentID: 'TR0011...',
+});
+
+console.log(result.status);  // e.g. "Completed"
+```
+
 ## 🔐 Credentials Management
 
 Three ways to provide API keys (highest priority wins):
@@ -129,12 +143,12 @@ Three ways to provide API keys (highest priority wins):
 
 ## 🌐 Supported Gateways
 
-| Gateway | Charge | Refund | Retrieve | Auth Method |
-|---------|--------|--------|----------|-------------|
-| Stripe | ✅ PaymentIntents | ✅ | ✅ | API Key |
-| SSLCommerz | ✅ Session | ✅ | ✅ | Store ID/Password |
-| bKash | ✅ Tokenized | ✅ | ✅ | Token Grant |
-| Nagad | ✅ Checkout | ✅ | ✅ | RSA Encrypted |
+| Gateway | Charge | Execute | Refund | Retrieve | Auth Method |
+|---------|--------|---------|--------|----------|-------------|
+| Stripe | ✅ PaymentIntents | ❌ | ✅ | ✅ | API Key |
+| SSLCommerz | ✅ Session | ❌ | ✅ | ✅ | Store ID/Password |
+| bKash | ✅ Tokenized | ✅ | ✅ | ✅ | Token Grant |
+| Nagad | ✅ Checkout | ❌ | ✅ | ✅ | RSA Encrypted |
 
 ## 📦 Response Format
 

@@ -72,3 +72,26 @@ export async function retrieve({ gateway, ...options }) {
   const config = resolveConfig(gateway, options);
   return adapter.retrieve(config, options);
 }
+
+/**
+ * Execute a payment through any supported gateway (e.g. bKash tokenized checkout).
+ *
+ * @param {object} options
+ * @param {string} options.gateway - Gateway name (e.g. "bkash").
+ * @param {string} options.paymentID - The payment ID to execute.
+ * @returns {Promise<object>} Normalized execute result.
+ *
+ * @example
+ * const result = await execute({
+ *   gateway: 'bkash',
+ *   paymentID: 'TR0011...',
+ * });
+ */
+export async function execute({ gateway, ...options }) {
+  const adapter = await getGateway(gateway);
+  if (typeof adapter.execute !== "function") {
+    throw new Error(`Gateway "${gateway}" does not support execute()`);
+  }
+  const config = resolveConfig(gateway, options);
+  return adapter.execute(config, options);
+}

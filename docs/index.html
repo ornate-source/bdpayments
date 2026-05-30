@@ -53,6 +53,7 @@
                     <li><a href="#charge"><i data-lucide="arrow-up-right"></i> Charge</a></li>
                     <li><a href="#refund"><i data-lucide="arrow-down-left"></i> Refund</a></li>
                     <li><a href="#retrieve"><i data-lucide="search"></i> Retrieve</a></li>
+                    <li><a href="#execute"><i data-lucide="play-circle"></i> Execute</a></li>
                     <li><a href="#error-handling"><i data-lucide="alert-circle"></i> Error Handling</a></li>
                     <li><a href="#typescript"><i data-lucide="code"></i> TypeScript</a></li>
                     <li><a href="#api-reference"><i data-lucide="book-open"></i> API Reference</a></li>
@@ -91,7 +92,7 @@
                     <span class="badge badge-purple"><i data-lucide="lock"></i> MIT License</span>
                 </div>
                 <p>Designed for developers who need to integrate multiple payment providers without writing
-                    gateway-specific code. Call <code>charge()</code>, <code>refund()</code>, or
+                    gateway-specific code. Call <code>charge()</code>, <code>execute()</code>, <code>refund()</code>, or
                     <code>retrieve()</code> — and let BDPayments route to the right adapter internally.
                 </p>
             </section>
@@ -187,7 +188,7 @@ await charge({
                 <h2><i data-lucide="play"></i> Quick Start</h2>
                 <p>Get up and running in three steps: install, configure, and call.</p>
                 <div class="code-block" data-lang="javascript">
-                    <pre><code>import { configure, charge, refund, retrieve } from 'bdpayments';
+                    <pre><code>import { configure, charge, refund, retrieve, execute } from 'bdpayments';
 
 // 1. Configure credentials once
 configure({
@@ -524,6 +525,24 @@ console.log(details.gatewayResponse); // Raw Stripe response</code></pre>
                 </div>
             </section>
 
+            <section id="execute" class="section">
+                <h2><i data-lucide="play-circle"></i> Execute</h2>
+                <p>Execute a payment through a supported gateway (e.g. bKash tokenized checkout).</p>
+
+                <div class="code-block" data-lang="javascript">
+                    <pre><code>import { execute } from 'bdpayments';
+
+const result = await execute({
+  gateway: 'bkash',
+  paymentID: 'TR0011...',
+});
+
+console.log(result.status);         // "Completed"
+console.log(result.gatewayResponse); // Raw gateway response</code></pre>
+                    <button class="copy-btn"><i data-lucide="copy"></i> Copy</button>
+                </div>
+            </section>
+
             <section id="error-handling" class="section">
                 <h2><i data-lucide="alert-circle"></i> Error Handling</h2>
                 <p>BDPayments provides a structured error hierarchy for precise error handling.</p>
@@ -654,6 +673,11 @@ const gw: GatewayName = 'bkash'; // ✅
                                 <td><code>Promise&lt;RetrieveResult&gt;</code></td>
                             </tr>
                             <tr>
+                                <td><code>execute(options)</code></td>
+                                <td>Execute a payment (e.g., bKash tokenized checkout).</td>
+                                <td><code>Promise&lt;PaymentResult&gt;</code></td>
+                            </tr>
+                            <tr>
                                 <td><code>getSupportedGateways()</code></td>
                                 <td>Returns array of supported gateway names.</td>
                                 <td><code>string[]</code></td>
@@ -669,6 +693,7 @@ const gw: GatewayName = 'bkash'; // ✅
                             <tr>
                                 <th>Gateway</th>
                                 <th>Charge</th>
+                                <th>Execute</th>
                                 <th>Refund</th>
                                 <th>Retrieve</th>
                                 <th>Auth Method</th>
@@ -679,6 +704,7 @@ const gw: GatewayName = 'bkash'; // ✅
                             <tr>
                                 <td>Stripe</td>
                                 <td>✅ PaymentIntents</td>
+                                <td>❌</td>
                                 <td>✅</td>
                                 <td>✅</td>
                                 <td>API Key</td>
@@ -689,6 +715,7 @@ const gw: GatewayName = 'bkash'; // ✅
                             <tr>
                                 <td>SSLCommerz</td>
                                 <td>✅ Session</td>
+                                <td>❌</td>
                                 <td>✅</td>
                                 <td>✅</td>
                                 <td>Store ID/Password</td>
@@ -699,12 +726,14 @@ const gw: GatewayName = 'bkash'; // ✅
                                 <td>✅ Tokenized</td>
                                 <td>✅</td>
                                 <td>✅</td>
+                                <td>✅</td>
                                 <td>Token Grant</td>
                                 <td>fetch</td>
                             </tr>
                             <tr>
                                 <td>Nagad</td>
                                 <td>✅ Checkout</td>
+                                <td>❌</td>
                                 <td>✅</td>
                                 <td>✅</td>
                                 <td>RSA Encrypted</td>
