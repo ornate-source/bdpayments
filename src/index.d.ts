@@ -200,14 +200,19 @@ export type RefundOptions =
 
 export interface BaseRetrieveOptions {
   gateway: GatewayName;
-  transactionId: string;
+  transactionId?: string;
   extra?: Record<string, any>;
   [key: string]: any;
 }
 
-export type RetrieveOptions = BaseRetrieveOptions & {
-  [key: string]: any;
-};
+export interface SSLCommerzRetrieveOptions extends BaseRetrieveOptions {
+  gateway: "sslcommerz";
+  valId?: string;
+}
+
+export type RetrieveOptions =
+  | SSLCommerzRetrieveOptions
+  | (BaseRetrieveOptions & { [key: string]: any });
 
 // --- Response Types ---
 

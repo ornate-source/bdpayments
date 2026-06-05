@@ -100,12 +100,20 @@ const result = await refund({
 ```javascript
 import { retrieve } from 'bdpayments';
 
-const result = await retrieve({
+// Retrieve Stripe payment details
+const stripeResult = await retrieve({
   gateway: 'stripe',
   transactionId: 'pi_...',
 });
 
-console.log(result.status);  // e.g. "succeeded"
+// Validate SSLCommerz payment callback or IPN using validation ID
+const sslcommerzResult = await retrieve({
+  gateway: 'sslcommerz',
+  valId: 'val_id_from_callback',
+});
+
+console.log(stripeResult.status);  // e.g. "succeeded"
+console.log(sslcommerzResult.success); // true if validated successfully
 ```
 
 ### 5. Execute

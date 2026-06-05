@@ -493,9 +493,10 @@ const bkashRefund = await refund({
             </section>
 
             <section id="retrieve" class="section">
-                <h2><i data-lucide="search"></i> Retrieve</h2>
-                <p>Retrieve payment details and status from any gateway.</p>
+                <h2><i data-lucide="search"></i> Retrieve / Validate</h2>
+                <p>Retrieve payment details and status from any gateway, or securely validate IPN and success callbacks (e.g. SSLCommerz).</p>
 
+                <h3>1. Retrieve Payment Details (Stripe, bKash, SSLCommerz, Nagad)</h3>
                 <div class="code-block" data-lang="javascript">
                     <pre><code>import { retrieve } from 'bdpayments';
 
@@ -508,6 +509,23 @@ console.log(details.status);         // "succeeded"
 console.log(details.amount);         // 1000
 console.log(details.currency);       // "usd"
 console.log(details.gatewayResponse); // Raw Stripe response</code></pre>
+                    <button class="copy-btn"><i data-lucide="copy"></i> Copy</button>
+                </div>
+
+                <h3>2. Secure callback / IPN Validation (SSLCommerz)</h3>
+                <p>Use the <code>valId</code> returned in the redirect query/IPN body to securely validate the payment status directly against SSLCommerz servers:</p>
+                <div class="code-block" data-lang="javascript">
+                    <pre><code>import { retrieve } from 'bdpayments';
+
+const validation = await retrieve({
+  gateway: 'sslcommerz',
+  valId: 'val_id_received_from_callback',
+});
+
+if (validation.success) {
+  console.log('Payment validated successfully:', validation.transactionId);
+  console.log('Status:', validation.status); // e.g. "VALID" or "VALIDATED"
+}</code></pre>
                     <button class="copy-btn"><i data-lucide="copy"></i> Copy</button>
                 </div>
 

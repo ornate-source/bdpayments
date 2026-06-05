@@ -195,19 +195,31 @@ export async function refund(config, options) {
  *
  * @param {object} config - Resolved credentials.
  * @param {object} options
- * @param {string} options.transactionId - The transaction ID to query.
+ * @param {string} [options.transactionId] - The transaction ID to query (optional if valId is provided).
+ * @param {string} [options.valId] - The validation ID to query (optional if transactionId is provided).
  * @param {object} [options.extra] - Additional params.
  * @returns {Promise<object>} Normalized retrieve result.
  */
 export async function retrieve(config, options) {
   try {
     const baseUrl = getBaseUrl(config.sandbox);
+    const useValId = !!options.valId;
 
     const body = new URLSearchParams({
       store_id: config.storeId,
       store_passwd: config.storePassword,
-      tran_id: options.transactionId,
     });
+
+    let endpoint;
+    if (useValId) {
+      body.set("val_id", options.valId);
+      body.set("v", "1");
+      body.set("format", "json");
+      endpoint = `${baseUrl}/validator/api/validationserverAPI.php`;
+    } else {
+      body.set("tran_id", options.transactionId);
+      endpoint = `${baseUrl}/validator/api/merchantTransIDvalidationAPI.php`;
+    }
 
     if (options.extra) {
       for (const [key, value] of Object.entries(options.extra)) {
@@ -216,11 +228,13 @@ export async function retrieve(config, options) {
     }
 
     const response = await fetch(
-      `${baseUrl}/validator/api/merchantTransIDvalidationAPI.php`,
+      useValId ? `${endpoint}?${body.toString()}` : endpoint,
       {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: body.toString(),
+        method: useValId ? "GET" : "POST",
+        ...(!useValId && {
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: body.toString(),
+        }),
       }
     );
 
@@ -235,9 +249,13 @@ export async function retrieve(config, options) {
     const result = await response.json();
     const element = result.element?.[0] || result;
 
+    const success = useValId
+      ? (result.status === "VALID" || result.status === "VALIDATED")
+      : result.APIConnect === "DONE";
+
     return {
-      success: result.APIConnect === "DONE",
-      transactionId: element.tran_id || options.transactionId,
+      success: !!success,
+      transactionId: element.tran_id || options.transactionId || null,
       status: element.status || result.status || "UNKNOWN",
       amount: parseFloat(element.amount || element.currency_amount || "0"),
       currency: element.currency || null,
