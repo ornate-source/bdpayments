@@ -1,3 +1,5 @@
+import { httpClient } from "../utils/http.js";
+import { withErrorHandling } from "../utils/wrapper.js";
 import { PaymentError } from "../errors.js";
 
 /**
@@ -21,31 +23,24 @@ function getBaseUrl(sandbox) {
 async function grantToken(config) {
   const baseUrl = getBaseUrl(config.sandbox);
 
-  const response = await fetch(`${baseUrl}/token/grant`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      username: config.username,
-      password: config.password,
+  const data = await httpClient(
+    `${baseUrl}/token/grant`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        username: config.username,
+        password: config.password,
+      },
+      body: JSON.stringify({
+        app_key: config.appKey,
+        app_secret: config.appSecret,
+      }),
     },
-    body: JSON.stringify({
-      app_key: config.appKey,
-      app_secret: config.appSecret,
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new PaymentError(
-      error.statusMessage || "bKash token grant failed",
-      "bkash",
-      "AUTH_FAILED",
-      error
-    );
-  }
-
-  const data = await response.json();
+    "bkash",
+    "AUTH_FAILED"
+  );
 
   if (data.statusCode && data.statusCode !== "0000") {
     throw new PaymentError(
@@ -69,23 +64,21 @@ async function grantToken(config) {
  * @returns {Promise<object>}
  */
 async function bkashFetch(url, token, appKey, body) {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      Authorization: token,
-      "X-APP-Key": appKey,
+  return httpClient(
+    url,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Authorization: token,
+        "X-APP-Key": appKey,
+      },
+      body: JSON.stringify(body),
     },
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw error;
-  }
-
-  return response.json();
+    "bkash",
+    "API_FAILED"
+  );
 }
 
 /**
@@ -102,58 +95,48 @@ async function bkashFetch(url, token, appKey, body) {
  * @param {object} [options.extra] - Additional params.
  * @returns {Promise<object>} Normalized payment result.
  */
-export async function charge(config, options) {
-  try {
-    const baseUrl = getBaseUrl(config.sandbox);
-    const token = await grantToken(config);
+export const charge = withErrorHandling(async (config, options) => {
+  const baseUrl = getBaseUrl(config.sandbox);
+  const token = await grantToken(config);
 
-    const createBody = {
-      mode: "0011",
-      payerReference: options.payerReference || " ",
-      callbackURL: options.callbackURL || " ",
-      amount: String(options.amount),
-      currency: options.currency || "BDT",
-      intent: options.intent || "sale",
-      merchantInvoiceNumber: options.invoiceNumber,
-      ...options.extra,
-    };
+  const createBody = {
+    mode: "0011",
+    payerReference: options.payerReference || " ",
+    callbackURL: options.callbackURL || " ",
+    amount: String(options.amount),
+    currency: options.currency || "BDT",
+    intent: options.intent || "sale",
+    merchantInvoiceNumber: options.invoiceNumber,
+    ...options.extra,
+  };
 
-    const result = await bkashFetch(
-      `${baseUrl}/create`,
-      token,
-      config.appKey,
-      createBody
-    );
+  const result = await bkashFetch(
+    `${baseUrl}/create`,
+    token,
+    config.appKey,
+    createBody
+  );
 
-    if (result.statusCode && result.statusCode !== "0000") {
-      throw new PaymentError(
-        result.statusMessage || "bKash payment creation failed",
-        "bkash",
-        "CHARGE_FAILED",
-        result
-      );
-    }
-
-    return {
-      success: true,
-      transactionId: result.paymentID,
-      status: result.transactionStatus || "CREATED",
-      amount: parseFloat(result.amount || options.amount),
-      currency: options.currency || "BDT",
-      bkashURL: result.bkashURL || null,
-      callbackURL: result.callbackURL || null,
-      gatewayResponse: result,
-    };
-  } catch (error) {
-    if (error instanceof PaymentError) throw error;
+  if (result.statusCode && result.statusCode !== "0000") {
     throw new PaymentError(
-      error.message || "bKash charge failed",
+      result.statusMessage || "bKash payment creation failed",
       "bkash",
       "CHARGE_FAILED",
-      error
+      result
     );
   }
-}
+
+  return {
+    success: true,
+    transactionId: result.paymentID,
+    status: result.transactionStatus || "CREATED",
+    amount: parseFloat(result.amount || options.amount),
+    currency: options.currency || "BDT",
+    bkashURL: result.bkashURL || null,
+    callbackURL: result.callbackURL || null,
+    gatewayResponse: result,
+  };
+}, "bkash", "CHARGE_FAILED");
 
 /**
  * Execute a bKash payment (after customer approval).
@@ -163,46 +146,36 @@ export async function charge(config, options) {
  * @param {string} options.paymentID - The bKash payment ID to execute.
  * @returns {Promise<object>} Normalized result.
  */
-export async function execute(config, options) {
-  try {
-    const baseUrl = getBaseUrl(config.sandbox);
-    const token = await grantToken(config);
+export const execute = withErrorHandling(async (config, options) => {
+  const baseUrl = getBaseUrl(config.sandbox);
+  const token = await grantToken(config);
 
-    const result = await bkashFetch(
-      `${baseUrl}/execute`,
-      token,
-      config.appKey,
-      { paymentID: options.paymentID }
-    );
+  const result = await bkashFetch(
+    `${baseUrl}/execute`,
+    token,
+    config.appKey,
+    { paymentID: options.paymentID }
+  );
 
-    if (result.statusCode && result.statusCode !== "0000") {
-      throw new PaymentError(
-        result.statusMessage || "bKash payment execution failed",
-        "bkash",
-        "EXECUTE_FAILED",
-        result
-      );
-    }
-
-    return {
-      success: true,
-      transactionId: result.trxID || result.paymentID,
-      paymentID: result.paymentID,
-      status: result.transactionStatus || "COMPLETED",
-      amount: parseFloat(result.amount || "0"),
-      currency: result.currency || "BDT",
-      gatewayResponse: result,
-    };
-  } catch (error) {
-    if (error instanceof PaymentError) throw error;
+  if (result.statusCode && result.statusCode !== "0000") {
     throw new PaymentError(
-      error.message || "bKash execute failed",
+      result.statusMessage || "bKash payment execution failed",
       "bkash",
       "EXECUTE_FAILED",
-      error
+      result
     );
   }
-}
+
+  return {
+    success: true,
+    transactionId: result.trxID || result.paymentID,
+    paymentID: result.paymentID,
+    status: result.transactionStatus || "COMPLETED",
+    amount: parseFloat(result.amount || "0"),
+    currency: result.currency || "BDT",
+    gatewayResponse: result,
+  };
+}, "bkash", "EXECUTE_FAILED");
 
 /**
  * Refund a bKash payment.
@@ -217,55 +190,45 @@ export async function execute(config, options) {
  * @param {object} [options.extra] - Additional params.
  * @returns {Promise<object>} Normalized refund result.
  */
-export async function refund(config, options) {
-  try {
-    const baseUrl = getBaseUrl(config.sandbox);
-    const token = await grantToken(config);
+export const refund = withErrorHandling(async (config, options) => {
+  const baseUrl = getBaseUrl(config.sandbox);
+  const token = await grantToken(config);
 
-    const refundBody = {
-      paymentID: options.transactionId,
-      trxID: options.trxID,
-      amount: String(options.amount),
-      reason: options.reason || "Refund requested",
-      sku: options.sku || "N/A",
-      ...options.extra,
-    };
+  const refundBody = {
+    paymentID: options.transactionId,
+    trxID: options.trxID,
+    amount: String(options.amount),
+    reason: options.reason || "Refund requested",
+    sku: options.sku || "N/A",
+    ...options.extra,
+  };
 
-    const result = await bkashFetch(
-      `${baseUrl}/payment/refund`,
-      token,
-      config.appKey,
-      refundBody
-    );
+  const result = await bkashFetch(
+    `${baseUrl}/payment/refund`,
+    token,
+    config.appKey,
+    refundBody
+  );
 
-    if (result.statusCode && result.statusCode !== "0000") {
-      throw new PaymentError(
-        result.statusMessage || "bKash refund failed",
-        "bkash",
-        "REFUND_FAILED",
-        result
-      );
-    }
-
-    return {
-      success: true,
-      refundId: result.refundTrxID || null,
-      transactionId: options.transactionId,
-      status: result.transactionStatus || "REFUNDED",
-      amount: parseFloat(result.amount || options.amount),
-      currency: result.currency || "BDT",
-      gatewayResponse: result,
-    };
-  } catch (error) {
-    if (error instanceof PaymentError) throw error;
+  if (result.statusCode && result.statusCode !== "0000") {
     throw new PaymentError(
-      error.message || "bKash refund failed",
+      result.statusMessage || "bKash refund failed",
       "bkash",
       "REFUND_FAILED",
-      error
+      result
     );
   }
-}
+
+  return {
+    success: true,
+    refundId: result.refundTrxID || null,
+    transactionId: options.transactionId,
+    status: result.transactionStatus || "REFUNDED",
+    amount: parseFloat(result.amount || options.amount),
+    currency: result.currency || "BDT",
+    gatewayResponse: result,
+  };
+}, "bkash", "REFUND_FAILED");
 
 /**
  * Query/retrieve a bKash payment status.
@@ -276,43 +239,33 @@ export async function refund(config, options) {
  * @param {object} [options.extra] - Additional params.
  * @returns {Promise<object>} Normalized retrieve result.
  */
-export async function retrieve(config, options) {
-  try {
-    const baseUrl = getBaseUrl(config.sandbox);
-    const token = await grantToken(config);
+export const retrieve = withErrorHandling(async (config, options) => {
+  const baseUrl = getBaseUrl(config.sandbox);
+  const token = await grantToken(config);
 
-    const result = await bkashFetch(
-      `${baseUrl}/payment/status`,
-      token,
-      config.appKey,
-      { paymentID: options.transactionId, ...options.extra }
-    );
+  const result = await bkashFetch(
+    `${baseUrl}/payment/status`,
+    token,
+    config.appKey,
+    { paymentID: options.transactionId, ...options.extra }
+  );
 
-    if (result.statusCode && result.statusCode !== "0000") {
-      throw new PaymentError(
-        result.statusMessage || "bKash query failed",
-        "bkash",
-        "RETRIEVE_FAILED",
-        result
-      );
-    }
-
-    return {
-      success: true,
-      transactionId: result.paymentID,
-      trxID: result.trxID || null,
-      status: result.transactionStatus || "UNKNOWN",
-      amount: parseFloat(result.amount || "0"),
-      currency: result.currency || "BDT",
-      gatewayResponse: result,
-    };
-  } catch (error) {
-    if (error instanceof PaymentError) throw error;
+  if (result.statusCode && result.statusCode !== "0000") {
     throw new PaymentError(
-      error.message || "bKash retrieve failed",
+      result.statusMessage || "bKash query failed",
       "bkash",
       "RETRIEVE_FAILED",
-      error
+      result
     );
   }
-}
+
+  return {
+    success: true,
+    transactionId: result.paymentID,
+    trxID: result.trxID || null,
+    status: result.transactionStatus || "UNKNOWN",
+    amount: parseFloat(result.amount || "0"),
+    currency: result.currency || "BDT",
+    gatewayResponse: result,
+  };
+}, "bkash", "RETRIEVE_FAILED");

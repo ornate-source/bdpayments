@@ -54,6 +54,7 @@
                     <li><a href="#refund"><i data-lucide="arrow-down-left"></i> Refund</a></li>
                     <li><a href="#retrieve"><i data-lucide="search"></i> Retrieve</a></li>
                     <li><a href="#execute"><i data-lucide="play-circle"></i> Execute</a></li>
+                    <li><a href="#architecture"><i data-lucide="layers"></i> Architecture</a></li>
                     <li><a href="#error-handling"><i data-lucide="alert-circle"></i> Error Handling</a></li>
                     <li><a href="#typescript"><i data-lucide="code"></i> TypeScript</a></li>
                     <li><a href="#api-reference"><i data-lucide="book-open"></i> API Reference</a></li>
@@ -558,6 +559,35 @@ const result = await execute({
 console.log(result.status);         // "Completed"
 console.log(result.gatewayResponse); // Raw gateway response</code></pre>
                     <button class="copy-btn"><i data-lucide="copy"></i> Copy</button>
+                </div>
+            </section>
+
+            <section id="architecture" class="section">
+                <h2><i data-lucide="layers"></i> Internal Architecture</h2>
+                <p>BDPayments uses a centralized architecture for making gateway requests, adhering to SOLID and DRY principles:</p>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Utility</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>src/utils/http.js</code></td>
+                                <td>Centralized <code>httpClient</code> wrapping the native <code>fetch</code> API for all network requests.</td>
+                            </tr>
+                            <tr>
+                                <td><code>src/utils/wrapper.js</code></td>
+                                <td>Higher-order function <code>withErrorHandling</code> that maps gateway responses to unified <code>PaymentError</code> instances.</td>
+                            </tr>
+                            <tr>
+                                <td><code>src/utils/crypto.js</code></td>
+                                <td>Cryptographic functions (RSA, signatures) decoupled from specific gateway modules.</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </section>
 

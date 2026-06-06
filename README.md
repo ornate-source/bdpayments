@@ -173,6 +173,13 @@ All functions return a normalized response:
 }
 ```
 
+## 🏗 Internal Architecture
+
+BDPayments uses a centralized architecture for making gateway requests, adhering to SOLID and DRY principles:
+- **`src/utils/http.js`**: Centralized `httpClient` wrapping the native `fetch` API for all network requests.
+- **`src/utils/wrapper.js`**: Higher-order function `withErrorHandling` that maps gateway responses to unified `PaymentError` instances.
+- **`src/utils/crypto.js`**: Cryptographic functions (RSA, signatures) decoupled from specific gateway modules.
+
 ## 🛠 Error Handling
 
 ```javascript
