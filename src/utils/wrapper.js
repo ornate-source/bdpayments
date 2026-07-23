@@ -16,12 +16,20 @@ export function withErrorHandling(fn, gateway, defaultErrorCode) {
       if (error instanceof PaymentError) {
         throw error;
       }
-      throw new PaymentError(
-        error.message || `${gateway} operation failed`,
+
+      const wrapped = new PaymentError(
+        error?.message || `${gateway} operation failed`,
         gateway,
+        // Gateway SDKs (e.g. Stripe) carry their own status code — keep it.
         defaultErrorCode,
         error
       );
+
+      if (typeof error?.statusCode === "number") {
+        wrapped.status = error.statusCode;
+      }
+
+      throw wrapped;
     }
   };
 }

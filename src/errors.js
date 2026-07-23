@@ -9,11 +9,16 @@ export class PaymentError extends Error {
    * @param {any} [originalError] - The original error from the gateway SDK/API.
    */
   constructor(message, gateway, code, originalError = null) {
-    super(message);
+    super(message, originalError instanceof Error ? { cause: originalError } : undefined);
     this.name = "PaymentError";
     this.gateway = gateway;
     this.code = code;
     this.originalError = originalError;
+    /**
+     * HTTP status code, when the error came from an HTTP response.
+     * @type {number|null}
+     */
+    this.status = null;
   }
 }
 
@@ -23,14 +28,20 @@ export class PaymentError extends Error {
 export class GatewayNotFoundError extends PaymentError {
   /**
    * @param {string} gatewayName - The invalid gateway name that was provided.
+   * @param {string[]} [supportedGateways=[]] - The gateways that *are* supported.
+   *   Passed in by the registry so this message can never drift from reality.
    */
-  constructor(gatewayName) {
+  constructor(gatewayName, supportedGateways = []) {
     super(
-      `Gateway "${gatewayName}" is not supported. Supported gateways: stripe, paypal, payoneer, sslcommerz, bkash, nagad.`,
+      `Gateway "${gatewayName}" is not supported.` +
+        (supportedGateways.length
+          ? ` Supported gateways: ${supportedGateways.join(", ")}.`
+          : ""),
       gatewayName,
       "GATEWAY_NOT_FOUND"
     );
     this.name = "GatewayNotFoundError";
+    this.supportedGateways = supportedGateways;
   }
 }
 

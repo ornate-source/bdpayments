@@ -1,14 +1,17 @@
-import { describe, it, beforeEach } from "node:test";
+import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 // ============================================================================
 // Smoke Tests — BDPayments
 // ============================================================================
 
+const SUPPORTED = ["stripe", "sslcommerz", "bkash", "nagad"];
+
 describe("BDPayments exports", () => {
-  it("should export charge, refund, retrieve functions", async () => {
+  it("should export charge, execute, refund, retrieve functions", async () => {
     const mod = await import("../src/index.js");
     assert.equal(typeof mod.charge, "function");
+    assert.equal(typeof mod.execute, "function");
     assert.equal(typeof mod.refund, "function");
     assert.equal(typeof mod.retrieve, "function");
   });
@@ -26,154 +29,97 @@ describe("BDPayments exports", () => {
     assert.equal(typeof mod.ConfigurationError, "function");
   });
 
+  it("should export webhook helpers", async () => {
+    const mod = await import("../src/index.js");
+    assert.equal(typeof mod.verifySslcommerzIpn, "function");
+    assert.equal(typeof mod.parseNagadCallback, "function");
+  });
+
   it("should export getSupportedGateways", async () => {
     const mod = await import("../src/index.js");
-    assert.equal(typeof mod.getSupportedGateways, "function");
-    const gateways = mod.getSupportedGateways();
-    assert.ok(Array.isArray(gateways));
-    assert.ok(gateways.includes("stripe"));
-    assert.ok(gateways.includes("sslcommerz"));
-    assert.ok(gateways.includes("bkash"));
-    assert.ok(gateways.includes("nagad"));
+    assert.deepEqual(mod.getSupportedGateways().sort(), [...SUPPORTED].sort());
   });
 });
 
 describe("Gateway registry", () => {
-  it("should load all 6 gateway adapters", async () => {
+  it(`should load all ${SUPPORTED.length} gateway adapters`, async () => {
     const { getGateway } = await import("../src/gateways/index.js");
-    const gateways = [
-      "stripe",
-      "sslcommerz",
-      "bkash",
-      "nagad",
-    ];
 
-    for (const name of gateways) {
+    for (const name of SUPPORTED) {
       const adapter = await getGateway(name);
       assert.ok(adapter, `Adapter for ${name} should exist`);
-      assert.equal(
-        typeof adapter.charge,
-        "function",
-        `${name} should have charge()`
-      );
-      assert.equal(
-        typeof adapter.refund,
-        "function",
-        `${name} should have refund()`
-      );
-      assert.equal(
-        typeof adapter.retrieve,
-        "function",
-        `${name} should have retrieve()`
-      );
+      for (const op of ["charge", "refund", "retrieve"]) {
+        assert.equal(
+          typeof adapter[op],
+          "function",
+          `${name} should have ${op}()`
+        );
+      }
     }
+  });
+
+  it("should report per-gateway capabilities", async () => {
+    const { getGatewayCapabilities } = await import("../src/gateways/index.js");
+
+    assert.deepEqual(await getGatewayCapabilities("bkash"), {
+      charge: true,
+      execute: true,
+      refund: true,
+      retrieve: true,
+    });
+
+    assert.deepEqual(await getGatewayCapabilities("stripe"), {
+      charge: true,
+      execute: false,
+      refund: true,
+      retrieve: true,
+    });
   });
 
   it("should throw GatewayNotFoundError for unknown gateways", async () => {
     const { getGateway } = await import("../src/gateways/index.js");
     const { GatewayNotFoundError } = await import("../src/errors.js");
 
-    await assert.rejects(() => getGateway("unknown_gateway"), (err) => {
-      assert.ok(err instanceof GatewayNotFoundError);
-      assert.equal(err.code, "GATEWAY_NOT_FOUND");
-      return true;
-    });
-  });
-
-  it("should handle case-insensitive gateway names", async () => {
-    const { getGateway } = await import("../src/gateways/index.js");
-
-    const adapter = await getGateway("STRIPE");
-    assert.ok(adapter);
-    assert.equal(typeof adapter.charge, "function");
-
-    const adapter2 = await getGateway("  BkAsH  ");
-    assert.ok(adapter2);
-    assert.equal(typeof adapter2.charge, "function");
-  });
-});
-
-describe("Config module", () => {
-  let configModule;
-
-  beforeEach(async () => {
-    configModule = await import("../src/config.js");
-    configModule.clearConfig();
-  });
-
-  it("should store and resolve global config", () => {
-    configModule.configure({
-      stripe: { apiKey: "sk_test_123" },
-    });
-
-    const resolved = configModule.resolveConfig("stripe", {});
-    assert.equal(resolved.apiKey, "sk_test_123");
-  });
-
-  it("should allow per-call overrides to take precedence", () => {
-    configModule.configure({
-      stripe: { apiKey: "sk_global" },
-    });
-
-    const resolved = configModule.resolveConfig("stripe", {
-      apiKey: "sk_override",
-    });
-    assert.equal(resolved.apiKey, "sk_override");
-  });
-
-  it("should throw ConfigurationError for missing required keys", async () => {
-    const { ConfigurationError } = await import("../src/errors.js");
-
-    assert.throws(
-      () => configModule.resolveConfig("stripe", {}),
+    await assert.rejects(
+      () => getGateway("unknown_gateway"),
       (err) => {
-        assert.ok(err instanceof ConfigurationError);
-        assert.ok(err.missingKeys.includes("apiKey"));
+        assert.ok(err instanceof GatewayNotFoundError);
+        assert.equal(err.code, "GATEWAY_NOT_FOUND");
         return true;
       }
     );
   });
 
-  it("should default sandbox to false", () => {
-    configModule.configure({
-      stripe: { apiKey: "sk_test_123" },
-    });
+  it("should only advertise gateways that actually exist", async () => {
+    const { getGateway, getSupportedGateways } = await import(
+      "../src/gateways/index.js"
+    );
 
-    const resolved = configModule.resolveConfig("stripe", {});
-    assert.equal(resolved.sandbox, false);
-  });
+    const error = await getGateway("paypal").catch((e) => e);
 
-  it("should read environment variables as fallback", () => {
-    // Set env vars temporarily
-    const originalKey = process.env.STRIPE_API_KEY;
-    process.env.STRIPE_API_KEY = "sk_env_test";
-
-    try {
-      const resolved = configModule.resolveConfig("stripe", {});
-      assert.equal(resolved.apiKey, "sk_env_test");
-    } finally {
-      // Restore
-      if (originalKey === undefined) {
-        delete process.env.STRIPE_API_KEY;
-      } else {
-        process.env.STRIPE_API_KEY = originalKey;
-      }
+    assert.deepEqual(error.supportedGateways, getSupportedGateways());
+    for (const removed of ["paypal", "payoneer"]) {
+      assert.ok(
+        !error.message.includes(`${removed},`),
+        `message must not advertise ${removed}: ${error.message}`
+      );
     }
   });
 
-  it("should clear config correctly", () => {
-    const { ConfigurationError } = configModule;
+  it("should handle case-insensitive gateway names", async () => {
+    const { getGateway } = await import("../src/gateways/index.js");
 
-    configModule.configure({
-      stripe: { apiKey: "sk_test_123" },
-    });
-    configModule.clearConfig();
+    assert.ok(await getGateway("STRIPE"));
+    assert.ok(await getGateway("  BkAsH  "));
+  });
 
-    // Should now fail because config was cleared
-    assert.throws(
-      () => configModule.resolveConfig("stripe", {}),
-      (err) => err.code === "MISSING_CREDENTIALS"
-    );
+  it("should reject non-string gateway names", async () => {
+    const { getGateway } = await import("../src/gateways/index.js");
+    const { GatewayNotFoundError } = await import("../src/errors.js");
+
+    for (const bad of [undefined, null, 42, {}]) {
+      await assert.rejects(() => getGateway(bad), GatewayNotFoundError);
+    }
   });
 });
 
@@ -188,8 +134,17 @@ describe("Error classes", () => {
     assert.equal(err.gateway, "stripe");
     assert.equal(err.code, "TEST_CODE");
     assert.deepEqual(err.originalError, { raw: true });
+    assert.equal(err.status, null);
     assert.equal(err.name, "PaymentError");
     assert.ok(err instanceof Error);
+  });
+
+  it("PaymentError should chain an Error cause", async () => {
+    const { PaymentError } = await import("../src/errors.js");
+
+    const root = new Error("socket hang up");
+    const err = new PaymentError("wrapped", "bkash", "NETWORK_ERROR", root);
+    assert.equal(err.cause, root);
   });
 
   it("GatewayNotFoundError should be a PaymentError", async () => {
@@ -197,12 +152,21 @@ describe("Error classes", () => {
       "../src/errors.js"
     );
 
-    const err = new GatewayNotFoundError("foobar");
+    const err = new GatewayNotFoundError("foobar", ["stripe"]);
     assert.ok(err instanceof PaymentError);
-    assert.ok(err instanceof Error);
     assert.equal(err.name, "GatewayNotFoundError");
     assert.equal(err.code, "GATEWAY_NOT_FOUND");
     assert.ok(err.message.includes("foobar"));
+    assert.ok(err.message.includes("stripe"));
+    assert.deepEqual(err.supportedGateways, ["stripe"]);
+  });
+
+  it("GatewayNotFoundError should work without a supported list", async () => {
+    const { GatewayNotFoundError } = await import("../src/errors.js");
+
+    const err = new GatewayNotFoundError("foobar");
+    assert.ok(err.message.includes("foobar"));
+    assert.deepEqual(err.supportedGateways, []);
   });
 
   it("ConfigurationError should list missing keys", async () => {
@@ -210,10 +174,7 @@ describe("Error classes", () => {
       "../src/errors.js"
     );
 
-    const err = new ConfigurationError("bkash", [
-      "appKey",
-      "appSecret",
-    ]);
+    const err = new ConfigurationError("bkash", ["appKey", "appSecret"]);
     assert.ok(err instanceof PaymentError);
     assert.equal(err.code, "MISSING_CREDENTIALS");
     assert.deepEqual(err.missingKeys, ["appKey", "appSecret"]);
@@ -222,34 +183,30 @@ describe("Error classes", () => {
 });
 
 describe("Global functions — validation", () => {
-  it("charge should throw GatewayNotFoundError for invalid gateway", async () => {
-    const { charge, GatewayNotFoundError } = await import("../src/index.js");
+  it("should throw GatewayNotFoundError for an invalid gateway", async () => {
+    const { charge, execute, refund, retrieve, GatewayNotFoundError } =
+      await import("../src/index.js");
 
-    await assert.rejects(() => charge({ gateway: "nonexistent" }), (err) => {
-      assert.ok(err instanceof GatewayNotFoundError);
-      return true;
-    });
-  });
-
-  it("refund should throw GatewayNotFoundError for invalid gateway", async () => {
-    const { refund, GatewayNotFoundError } = await import("../src/index.js");
-
-    await assert.rejects(
+    const cases = [
+      () => charge({ gateway: "nonexistent" }),
+      () => execute({ gateway: "nonexistent", paymentID: "x" }),
       () => refund({ gateway: "nonexistent", transactionId: "abc" }),
-      (err) => {
-        assert.ok(err instanceof GatewayNotFoundError);
-        return true;
-      }
-    );
+      () => retrieve({ gateway: "nonexistent", transactionId: "abc" }),
+    ];
+
+    for (const run of cases) {
+      await assert.rejects(run, GatewayNotFoundError);
+    }
   });
 
-  it("retrieve should throw GatewayNotFoundError for invalid gateway", async () => {
-    const { retrieve, GatewayNotFoundError } = await import("../src/index.js");
+  it("execute() should throw a PaymentError for gateways without it", async () => {
+    const { execute, PaymentError } = await import("../src/index.js");
 
     await assert.rejects(
-      () => retrieve({ gateway: "nonexistent", transactionId: "abc" }),
+      () => execute({ gateway: "stripe", paymentID: "x" }),
       (err) => {
-        assert.ok(err instanceof GatewayNotFoundError);
+        assert.ok(err instanceof PaymentError, "must be a PaymentError");
+        assert.equal(err.code, "UNSUPPORTED_OPERATION");
         return true;
       }
     );

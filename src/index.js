@@ -4,16 +4,45 @@ export {
   GatewayNotFoundError,
   ConfigurationError,
 } from "./errors.js";
-export { getSupportedGateways } from "./gateways/index.js";
+export {
+  getSupportedGateways,
+  getGatewayCapabilities,
+} from "./gateways/index.js";
+export { verifySslcommerzIpn, parseNagadCallback } from "./webhooks.js";
 
 import { resolveConfig } from "./config.js";
 import { getGateway } from "./gateways/index.js";
+import { PaymentError } from "./errors.js";
+
+/**
+ * Resolve an adapter and assert it implements the requested operation.
+ *
+ * @param {string} gateway - Gateway name.
+ * @param {string} operation - Operation name ("charge", "execute", …).
+ * @returns {Promise<Function>} The adapter method.
+ * @throws {PaymentError} With code "UNSUPPORTED_OPERATION" if unimplemented.
+ */
+async function getOperation(gateway, operation) {
+  const adapter = await getGateway(gateway);
+
+  if (typeof adapter[operation] !== "function") {
+    throw new PaymentError(
+      `Gateway "${gateway}" does not support ${operation}().`,
+      gateway,
+      "UNSUPPORTED_OPERATION"
+    );
+  }
+
+  return adapter[operation];
+}
 
 /**
  * Create a charge/payment through any supported gateway.
  *
  * @param {object} options
  * @param {string} options.gateway - Gateway name (e.g. "stripe", "bkash").
+ * @param {string} [options.idempotencyKey] - Safe-retry key (Stripe only; the
+ *   BDT gateways use their own natural keys — see the README).
  * @param {object} [options.extra] - Additional gateway-specific params.
  * @returns {Promise<object>} Normalized payment result.
  *
@@ -26,9 +55,9 @@ import { getGateway } from "./gateways/index.js";
  * });
  */
 export async function charge({ gateway, ...options }) {
-  const adapter = await getGateway(gateway);
+  const op = await getOperation(gateway, "charge");
   const config = resolveConfig(gateway, options);
-  return adapter.charge(config, options);
+  return op(config, options);
 }
 
 /**
@@ -38,6 +67,7 @@ export async function charge({ gateway, ...options }) {
  * @param {string} options.gateway - Gateway name.
  * @param {string} options.transactionId - The transaction/payment ID to refund.
  * @param {number} [options.amount] - Partial refund amount (omit for full refund where supported).
+ * @param {string} [options.idempotencyKey] - Safe-retry key (Stripe only).
  * @returns {Promise<object>} Normalized refund result.
  *
  * @example
@@ -48,9 +78,9 @@ export async function charge({ gateway, ...options }) {
  * });
  */
 export async function refund({ gateway, ...options }) {
-  const adapter = await getGateway(gateway);
+  const op = await getOperation(gateway, "refund");
   const config = resolveConfig(gateway, options);
-  return adapter.refund(config, options);
+  return op(config, options);
 }
 
 /**
@@ -68,9 +98,9 @@ export async function refund({ gateway, ...options }) {
  * });
  */
 export async function retrieve({ gateway, ...options }) {
-  const adapter = await getGateway(gateway);
+  const op = await getOperation(gateway, "retrieve");
   const config = resolveConfig(gateway, options);
-  return adapter.retrieve(config, options);
+  return op(config, options);
 }
 
 /**
@@ -88,10 +118,7 @@ export async function retrieve({ gateway, ...options }) {
  * });
  */
 export async function execute({ gateway, ...options }) {
-  const adapter = await getGateway(gateway);
-  if (typeof adapter.execute !== "function") {
-    throw new Error(`Gateway "${gateway}" does not support execute()`);
-  }
+  const op = await getOperation(gateway, "execute");
   const config = resolveConfig(gateway, options);
-  return adapter.execute(config, options);
+  return op(config, options);
 }

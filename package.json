@@ -1,12 +1,28 @@
 {
   "name": "bdpayments",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "description": "Centralized payment gateway abstraction for Stripe, SSLCommerz, bKash, and Nagad. One unified API for charge, refund, and retrieve.",
   "main": "src/index.js",
   "types": "src/index.d.ts",
   "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js",
+      "default": "./src/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "sideEffects": false,
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
-    "test": "node --test tests/*.test.js"
+    "test": "node --test",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "check": "npm run typecheck && npm test"
   },
   "author": "Sabbir Mahmud",
   "license": "MIT",
@@ -22,19 +38,15 @@
     "node": ">=18.0.0"
   },
   "peerDependencies": {
-    "sslcommerz-lts": "^1.1.0",
-    "stripe": "*"
+    "stripe": ">=12"
   },
   "peerDependenciesMeta": {
     "stripe": {
       "optional": true
-    },
-    "sslcommerz-lts": {
-      "optional": true
     }
   },
   "devDependencies": {
-    "sslcommerz-lts": "^1.1.0",
+    "@types/node": "^22.13.0",
     "stripe": "^17.7.0",
     "typescript": "^5.8.2"
   },

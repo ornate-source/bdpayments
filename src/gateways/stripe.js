@@ -1,23 +1,57 @@
 import { withErrorHandling } from "../utils/wrapper.js";
+import { registerCache } from "../utils/cache.js";
+import { requireOptions, requireAmount } from "../utils/validate.js";
+import { PaymentError } from "../errors.js";
 
 /**
- * Initialize a Stripe SDK instance from the resolved config.
+ * Cached Stripe SDK clients, keyed by API key. Constructing a client per call
+ * would allocate a fresh HTTP agent and give up connection reuse.
+ *
+ * @type {Map<string, any>}
+ */
+const clients = new Map();
+
+registerCache(() => clients.clear());
+
+/**
+ * Get (or build) a Stripe SDK instance for the resolved config.
  *
  * @param {object} config - Resolved credentials ({ apiKey }).
- * @returns {import('stripe').default}
+ * @returns {Promise<any>} The Stripe client.
  */
-function createClient(config) {
-  const Stripe = /** @type {any} */ (
-    /** @type {Function} */ (
-      // Dynamic require-style — the `stripe` peer dependency must be installed.
-      // eslint-disable-next-line
-      import("stripe")
-    )
-  );
-  // `stripe` v14+ exports default as the constructor
-  return Stripe.then
-    ? Stripe.then((m) => new (m.default || m)(config.apiKey))
-    : new Stripe(config.apiKey);
+async function createClient(config) {
+  const cached = clients.get(config.apiKey);
+  if (cached) return cached;
+
+  let mod;
+  try {
+    mod = await import("stripe");
+  } catch (error) {
+    throw new PaymentError(
+      'The "stripe" peer dependency is not installed. Run: npm install stripe',
+      "stripe",
+      "MISSING_DEPENDENCY",
+      error
+    );
+  }
+
+  // `stripe` v12+ exports the constructor as the default export.
+  const Stripe = mod.default || mod;
+  const client = new Stripe(config.apiKey, { maxNetworkRetries: 2 });
+  clients.set(config.apiKey, client);
+  return client;
+}
+
+/**
+ * Build the per-request options Stripe accepts as its second argument.
+ *
+ * @param {object} options
+ * @returns {object|undefined}
+ */
+function requestOptions(options) {
+  return options.idempotencyKey
+    ? { idempotencyKey: options.idempotencyKey }
+    : undefined;
 }
 
 /**
@@ -33,10 +67,14 @@ function createClient(config) {
  * @param {object} [options.metadata] - Arbitrary metadata.
  * @param {boolean} [options.confirm] - Whether to confirm the payment intent immediately.
  * @param {string} [options.returnUrl] - Return URL for redirect-based payment methods.
+ * @param {string} [options.idempotencyKey] - Safe-retry key sent to Stripe.
  * @param {object} [options.extra] - Any additional params passed directly to the Stripe API.
  * @returns {Promise<object>} Normalized payment result.
  */
 export const charge = withErrorHandling(async (config, options) => {
+  requireOptions("stripe", options, ["currency"]);
+  requireAmount("stripe", options.amount, { integer: true });
+
   const stripe = await createClient(config);
 
   const params = {
@@ -55,7 +93,10 @@ export const charge = withErrorHandling(async (config, options) => {
     ...options.extra,
   };
 
-  const paymentIntent = await stripe.paymentIntents.create(params);
+  const paymentIntent = await stripe.paymentIntents.create(
+    params,
+    requestOptions(options)
+  );
 
   return {
     success: true,
@@ -75,20 +116,29 @@ export const charge = withErrorHandling(async (config, options) => {
  * @param {string} options.transactionId - The Payment Intent ID to refund.
  * @param {number} [options.amount] - Partial refund amount (omit for full refund).
  * @param {string} [options.reason] - Reason for refund.
+ * @param {string} [options.idempotencyKey] - Safe-retry key sent to Stripe.
  * @param {object} [options.extra] - Additional params passed to the Stripe API.
  * @returns {Promise<object>} Normalized refund result.
  */
 export const refund = withErrorHandling(async (config, options) => {
+  requireOptions("stripe", options, ["transactionId"]);
+  if (options.amount !== undefined) {
+    requireAmount("stripe", options.amount, { integer: true });
+  }
+
   const stripe = await createClient(config);
 
   const params = {
     payment_intent: options.transactionId,
-    ...(options.amount && { amount: options.amount }),
+    ...(options.amount !== undefined && { amount: options.amount }),
     ...(options.reason && { reason: options.reason }),
     ...options.extra,
   };
 
-  const refundResult = await stripe.refunds.create(params);
+  const refundResult = await stripe.refunds.create(
+    params,
+    requestOptions(options)
+  );
 
   return {
     success: true,
@@ -111,6 +161,8 @@ export const refund = withErrorHandling(async (config, options) => {
  * @returns {Promise<object>} Normalized retrieve result.
  */
 export const retrieve = withErrorHandling(async (config, options) => {
+  requireOptions("stripe", options, ["transactionId"]);
+
   const stripe = await createClient(config);
 
   const paymentIntent = await stripe.paymentIntents.retrieve(

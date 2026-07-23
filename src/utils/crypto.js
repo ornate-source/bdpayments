@@ -1,13 +1,16 @@
 import crypto from "node:crypto";
 
 /**
- * Generate a UTC timestamp in the format Nagad expects.
+ * Generate a timestamp in the format Nagad expects.
  *
- * @returns {string} e.g. "20240101120000"
+ * Nagad validates the request time against Bangladesh local time (UTC+6), so a
+ * plain UTC timestamp is rejected as stale on every request.
+ *
+ * @param {number} [offsetHours=6] - Hours ahead of UTC. Bangladesh is +6.
+ * @returns {string} e.g. "20240101180000"
  */
-export function getTimestamp() {
-  const now = new Date();
-  return now
+export function getTimestamp(offsetHours = 6) {
+  return new Date(Date.now() + offsetHours * 3_600_000)
     .toISOString()
     .replace(/[-:T]/g, "")
     .slice(0, 14);
@@ -20,7 +23,10 @@ export function getTimestamp() {
  * @returns {string}
  */
 export function generateChallenge(length = 40) {
-  return crypto.randomBytes(length).toString("hex").slice(0, length);
+  return crypto
+    .randomBytes(Math.ceil(length / 2))
+    .toString("hex")
+    .slice(0, length);
 }
 
 /**

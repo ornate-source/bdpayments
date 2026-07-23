@@ -57,6 +57,8 @@
                     <li><a href="#architecture"><i data-lucide="layers"></i> Architecture</a></li>
                     <li><a href="#error-handling"><i data-lucide="alert-circle"></i> Error Handling</a></li>
                     <li><a href="#typescript"><i data-lucide="code"></i> TypeScript</a></li>
+                    <li><a href="#idempotency"><i data-lucide="repeat"></i> Idempotency</a></li>
+                    <li><a href="#webhooks"><i data-lucide="webhook"></i> Webhooks</a></li>
                     <li><a href="#api-reference"><i data-lucide="book-open"></i> API Reference</a></li>
                     <li><a href="#env-variables"><i data-lucide="lock"></i> Env Variables</a></li>
                 </ul>
@@ -635,8 +637,33 @@ try {
                         <tbody>
                             <tr>
                                 <td><code>PaymentError</code></td>
-                                <td><code>CHARGE_FAILED</code> / <code>REFUND_FAILED</code> / <code>RETRIEVE_FAILED</code></td>
+                                <td><code>CHARGE_FAILED</code> / <code>EXECUTE_FAILED</code> / <code>REFUND_FAILED</code> / <code>RETRIEVE_FAILED</code></td>
                                 <td>Gateway API call fails</td>
+                            </tr>
+                            <tr>
+                                <td><code>PaymentError</code></td>
+                                <td><code>INVALID_REQUEST</code> / <code>INVALID_AMOUNT</code></td>
+                                <td>Bad input — thrown before any network call</td>
+                            </tr>
+                            <tr>
+                                <td><code>PaymentError</code></td>
+                                <td><code>TIMEOUT</code> / <code>NETWORK_ERROR</code></td>
+                                <td>The request never completed (30s default timeout)</td>
+                            </tr>
+                            <tr>
+                                <td><code>PaymentError</code></td>
+                                <td><code>AUTH_FAILED</code></td>
+                                <td>Gateway authentication failed (e.g. bKash token grant)</td>
+                            </tr>
+                            <tr>
+                                <td><code>PaymentError</code></td>
+                                <td><code>MISSING_DEPENDENCY</code></td>
+                                <td>An optional peer SDK (e.g. <code>stripe</code>) is not installed</td>
+                            </tr>
+                            <tr>
+                                <td><code>PaymentError</code></td>
+                                <td><code>UNSUPPORTED_OPERATION</code></td>
+                                <td>The gateway does not implement that operation</td>
                             </tr>
                             <tr>
                                 <td><code>GatewayNotFoundError</code></td>
@@ -648,6 +675,11 @@ try {
                                 <td><code>MISSING_CREDENTIALS</code></td>
                                 <td>Required API keys are missing</td>
                             </tr>
+                            <tr>
+                                <td><code>PaymentError</code></td>
+                                <td><code>INVALID_CONFIG</code></td>
+                                <td><code>configure()</code> was given an unknown gateway name</td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -655,30 +687,119 @@ try {
 
             <section id="typescript" class="section">
                 <h2><i data-lucide="code"></i> TypeScript Support</h2>
-                <p>Full type definitions are included. Options are narrowed by gateway name using discriminated unions.</p>
+                <p>Full type definitions are included. Options are narrowed by gateway name using discriminated
+                    unions, so fields belonging to another gateway are rejected at compile time.</p>
                 <div class="code-block" data-lang="typescript">
                     <pre><code>import {
   charge,
+  execute,
   configure,
   type ChargeOptions,
   type PaymentResult,
   type GatewayName,
 } from 'bdpayments';
 
-// TypeScript knows exactly which fields are valid
 const result: PaymentResult = await charge({
   gateway: 'stripe',
   amount: 1000,
   currency: 'usd',
   paymentMethod: 'pm_card_visa',
-  // TS will error if you add bkash-specific fields here
 });
+
+await charge({
+  gateway: 'stripe',
+  amount: 1000,
+  currency: 'usd',
+  invoiceNumber: 'INV-1', // ❌ Error: bKash-only field
+});
+
+// execute() is typed too — only bKash implements it
+await execute({ gateway: 'bkash', paymentID: 'TR0011...' });
 
 // Gateway name is a strict union type
 const gw: GatewayName = 'bkash'; // ✅
 // const gw: GatewayName = 'venmo'; // ❌ Type error</code></pre>
                     <button class="copy-btn"><i data-lucide="copy"></i> Copy</button>
                 </div>
+                <p>Anything the types don't model can be passed through <code>extra</code>, which is forwarded to
+                    the gateway untouched.</p>
+            </section>
+
+            <section id="idempotency" class="section">
+                <h2><i data-lucide="repeat"></i> Idempotency &amp; Timeouts</h2>
+                <p>Retrying a charge is only safe with an idempotency key. The mechanism differs per gateway:</p>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Gateway</th>
+                                <th>Key</th>
+                                <th>How</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Stripe</td>
+                                <td><code>idempotencyKey</code> option</td>
+                                <td>Sent as Stripe's <code>Idempotency-Key</code> header</td>
+                            </tr>
+                            <tr>
+                                <td>SSLCommerz</td>
+                                <td><code>transactionId</code></td>
+                                <td>Natural key — reuse it when retrying</td>
+                            </tr>
+                            <tr>
+                                <td>bKash</td>
+                                <td><code>invoiceNumber</code></td>
+                                <td>Natural key — reuse it when retrying</td>
+                            </tr>
+                            <tr>
+                                <td>Nagad</td>
+                                <td><code>orderId</code></td>
+                                <td>Natural key — reuse it when retrying</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="code-block" data-lang="javascript">
+                    <pre><code>await charge({
+  gateway: 'stripe',
+  amount: 1000,
+  currency: 'usd',
+  idempotencyKey: `order-${orderId}`,
+});
+
+// Requests time out after 30s by default.
+configure({ stripe: { timeoutMs: 10000 } });</code></pre>
+                    <button class="copy-btn"><i data-lucide="copy"></i> Copy</button>
+                </div>
+                <p>A timeout throws <code>PaymentError</code> with code <code>TIMEOUT</code>. The payment may still
+                    have succeeded — confirm with <code>retrieve()</code> rather than blindly retrying without a key.
+                </p>
+            </section>
+
+            <section id="webhooks" class="section">
+                <h2><i data-lucide="webhook"></i> Webhooks &amp; Callbacks</h2>
+                <p>Verify that an SSLCommerz IPN really came from SSLCommerz, then confirm the status
+                    server-to-server before marking an order paid.</p>
+                <div class="code-block" data-lang="javascript">
+                    <pre><code>import { verifySslcommerzIpn, retrieve } from 'bdpayments';
+
+app.post('/ipn/sslcommerz', async (req, res) => {
+  if (!verifySslcommerzIpn(req.body)) return res.sendStatus(400);
+
+  const payment = await retrieve({
+    gateway: 'sslcommerz',
+    valId: req.body.val_id,
+  });
+
+  if (payment.success) await markOrderPaid(payment.transactionId);
+  res.sendStatus(200);
+});</code></pre>
+                    <button class="copy-btn"><i data-lucide="copy"></i> Copy</button>
+                </div>
+                <p>Nagad callbacks carry no signature, so <code>parseNagadCallback()</code> normalizes them but always
+                    reports <code>verified: false</code> — always confirm with <code>retrieve()</code>.</p>
             </section>
 
             <section id="api-reference" class="section">
@@ -729,6 +850,21 @@ const gw: GatewayName = 'bkash'; // ✅
                                 <td><code>getSupportedGateways()</code></td>
                                 <td>Returns array of supported gateway names.</td>
                                 <td><code>string[]</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>getGatewayCapabilities(name)</code></td>
+                                <td>Which operations a gateway implements.</td>
+                                <td><code>Promise&lt;GatewayCapabilities&gt;</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>verifySslcommerzIpn(payload)</code></td>
+                                <td>Verify the signature on an SSLCommerz IPN / callback.</td>
+                                <td><code>boolean</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>parseNagadCallback(query)</code></td>
+                                <td>Normalize a Nagad callback (always unverified — confirm with <code>retrieve()</code>).</td>
+                                <td><code>NagadCallback</code></td>
                             </tr>
                         </tbody>
                     </table>
@@ -822,7 +958,7 @@ const gw: GatewayName = 'bkash'; // ✅
                             </tr>
                             <tr>
                                 <td>Nagad</td>
-                                <td><code>NAGAD_MERCHANT_ID</code>, <code>NAGAD_PUBLIC_KEY</code>, <code>NAGAD_PRIVATE_KEY</code>, <code>NAGAD_SANDBOX</code></td>
+                                <td><code>NAGAD_MERCHANT_ID</code>, <code>NAGAD_PUBLIC_KEY</code>, <code>NAGAD_PRIVATE_KEY</code>, <code>NAGAD_SANDBOX</code>, <code>NAGAD_CLIENT_IP</code></td>
                             </tr>
                         </tbody>
                     </table>

@@ -11,11 +11,24 @@ const gateways = {
   nagad: () => import("./nagad.js"),
 };
 
+/** The operations an adapter may implement. */
+const OPERATIONS = ["charge", "execute", "refund", "retrieve"];
+
 /**
  * Cache for already-loaded gateway modules.
  * @type {Map<string, object>}
  */
 const cache = new Map();
+
+/**
+ * Normalize a caller-supplied gateway name.
+ *
+ * @param {any} name
+ * @returns {string|undefined}
+ */
+function normalize(name) {
+  return typeof name === "string" ? name.toLowerCase().trim() : undefined;
+}
 
 /**
  * Get a gateway adapter by name. Lazily loads and caches the module.
@@ -25,10 +38,10 @@ const cache = new Map();
  * @throws {GatewayNotFoundError} If the gateway name is not recognized.
  */
 export async function getGateway(name) {
-  const normalized = name?.toLowerCase?.().trim();
+  const normalized = normalize(name);
 
   if (!normalized || !gateways[normalized]) {
-    throw new GatewayNotFoundError(name);
+    throw new GatewayNotFoundError(name, getSupportedGateways());
   }
 
   if (cache.has(normalized)) {
@@ -47,4 +60,18 @@ export async function getGateway(name) {
  */
 export function getSupportedGateways() {
   return Object.keys(gateways);
+}
+
+/**
+ * Report which operations a gateway supports.
+ *
+ * @param {string} name - Gateway name.
+ * @returns {Promise<{charge: boolean, execute: boolean, refund: boolean, retrieve: boolean}>}
+ * @throws {GatewayNotFoundError} If the gateway name is not recognized.
+ */
+export async function getGatewayCapabilities(name) {
+  const adapter = await getGateway(name);
+  return Object.fromEntries(
+    OPERATIONS.map((op) => [op, typeof adapter[op] === "function"])
+  );
 }

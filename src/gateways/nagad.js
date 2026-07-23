@@ -1,5 +1,10 @@
 import { httpClient } from "../utils/http.js";
 import { withErrorHandling } from "../utils/wrapper.js";
+import {
+  requireOptions,
+  requireAmount,
+  formatAmount,
+} from "../utils/validate.js";
 import { PaymentError } from "../errors.js";
 import {
   getTimestamp,
@@ -12,17 +17,74 @@ import {
 /**
  * Get the Nagad API base URL.
  *
- * @param {boolean} sandbox
+ * NOTE: Nagad's sandbox is only published over plaintext HTTP. The payload
+ * itself is RSA-encrypted, but headers and the merchant/order IDs in the path
+ * are not. Override with `configure({ nagad: { baseUrl } })` if your account
+ * has an HTTPS sandbox endpoint.
+ *
+ * @param {object} config
  * @returns {string}
  */
-function getBaseUrl(sandbox) {
-  return sandbox
+function getBaseUrl(config) {
+  if (config.baseUrl) return String(config.baseUrl).replace(/\/+$/, "");
+  return config.sandbox
     ? "http://sandbox.mynagad.com:10080/remote-payment-gateway-1.0/api/dfs"
     : "https://api.mynagad.com/api/dfs";
 }
 
 /**
+ * Standard Nagad request headers.
+ *
+ * @param {object} config
+ * @param {object} [additional]
+ * @returns {object}
+ */
+function nagadHeaders(config, additional = {}) {
+  return {
+    "Content-Type": "application/json",
+    "X-KM-Api-Version": "v-0.2.0",
+    // Nagad validates the caller IP on some merchant configurations.
+    "X-KM-IP-V4": config.clientIp || "127.0.0.1",
+    "X-KM-Client-Type": "PC_WEB",
+    ...additional,
+  };
+}
+
+/**
+ * Throw if Nagad reported a business-level failure.
+ *
+ * Nagad answers business failures with HTTP 200 and a `reason`/`message` body,
+ * so the HTTP status alone says nothing about whether the operation succeeded.
+ *
+ * @param {object} result - Parsed Nagad response.
+ * @param {string} code - Error code to attach.
+ * @param {string} fallbackMessage
+ * @returns {object} The same result.
+ */
+function assertNagadOk(result, code, fallbackMessage) {
+  const failed =
+    !result ||
+    result.reason !== undefined ||
+    result.status === "Failed" ||
+    result.status === "Aborted" ||
+    result.statusCode === "false";
+
+  if (failed) {
+    throw new PaymentError(
+      result?.message || result?.reason || fallbackMessage,
+      "nagad",
+      code,
+      result
+    );
+  }
+
+  return result;
+}
+
+/**
  * Initialize and complete a Nagad payment.
+ *
+ * `orderId` is the natural idempotency key — reuse it when retrying.
  *
  * @param {object} config - Resolved credentials ({ merchantId, publicKey, privateKey, sandbox }).
  * @param {object} options
@@ -34,7 +96,12 @@ function getBaseUrl(sandbox) {
  * @returns {Promise<object>} Normalized payment result.
  */
 export const charge = withErrorHandling(async (config, options) => {
-  const baseUrl = getBaseUrl(config.sandbox);
+  // orderId is interpolated into the request path — an undefined one would
+  // silently request ".../initialize/MERCHANT/undefined".
+  requireOptions("nagad", options, ["orderId"]);
+  requireAmount("nagad", options.amount);
+
+  const baseUrl = getBaseUrl(config);
   const timestamp = getTimestamp();
   const challenge = generateChallenge();
 
@@ -50,15 +117,12 @@ export const charge = withErrorHandling(async (config, options) => {
   const encryptedData = encryptWithPublicKey(sensitiveData, config.publicKey);
 
   const initResult = await httpClient(
-    `${baseUrl}/check-out/initialize/${config.merchantId}/${options.orderId}`,
+    `${baseUrl}/check-out/initialize/${encodeURIComponent(
+      config.merchantId
+    )}/${encodeURIComponent(options.orderId)}`,
     {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-KM-Api-Version": "v-0.2.0",
-        "X-KM-IP-V4": "127.0.0.1",
-        "X-KM-Client-Type": "PC_WEB",
-      },
+      headers: nagadHeaders(config),
       body: JSON.stringify({
         accountNumber: options.customerPhone || config.merchantId,
         dateTime: timestamp,
@@ -67,17 +131,11 @@ export const charge = withErrorHandling(async (config, options) => {
       }),
     },
     "nagad",
-    "CHARGE_FAILED"
+    "CHARGE_FAILED",
+    { timeoutMs: config.timeoutMs }
   );
 
-  if (initResult.reason) {
-    throw new PaymentError(
-      initResult.reason || "Nagad initialization failed",
-      "nagad",
-      "CHARGE_FAILED",
-      initResult
-    );
-  }
+  assertNagadOk(initResult, "CHARGE_FAILED", "Nagad initialization failed");
 
   // Decrypt the response sensitive data
   let decryptedInit;
@@ -87,12 +145,15 @@ export const charge = withErrorHandling(async (config, options) => {
       config.privateKey
     );
     decryptedInit = JSON.parse(decryptedStr);
-  } catch {
+  } catch (error) {
     throw new PaymentError(
-      "Failed to decrypt Nagad initialization response",
+      "Failed to decrypt Nagad initialization response. " +
+        "Note that Node.js 18.19.1, 20.11.1 and 21.6.2 disabled RSA PKCS#1 v1.5 " +
+        "decryption (CVE-2023-46809), which Nagad's protocol requires — " +
+        "upgrade to a later patch release if you are on one of those versions.",
       "nagad",
       "CHARGE_FAILED",
-      initResult
+      error
     );
   }
 
@@ -100,30 +161,21 @@ export const charge = withErrorHandling(async (config, options) => {
   const completeData = JSON.stringify({
     merchantId: config.merchantId,
     orderId: options.orderId,
-    amount: String(options.amount),
+    amount: formatAmount(options.amount),
     currencyCode: "050", // BDT
     challenge: decryptedInit.challenge,
   });
 
-  const completeSignature = signWithPrivateKey(
-    completeData,
-    config.privateKey
-  );
-  const completeEncrypted = encryptWithPublicKey(
-    completeData,
-    config.publicKey
-  );
+  const completeSignature = signWithPrivateKey(completeData, config.privateKey);
+  const completeEncrypted = encryptWithPublicKey(completeData, config.publicKey);
 
   const completeResult = await httpClient(
-    `${baseUrl}/check-out/complete/${decryptedInit.paymentReferenceId}`,
+    `${baseUrl}/check-out/complete/${encodeURIComponent(
+      decryptedInit.paymentReferenceId
+    )}`,
     {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-KM-Api-Version": "v-0.2.0",
-        "X-KM-IP-V4": "127.0.0.1",
-        "X-KM-Client-Type": "PC_WEB",
-      },
+      headers: nagadHeaders(config),
       body: JSON.stringify({
         sensitiveData: completeEncrypted,
         signature: completeSignature,
@@ -132,17 +184,11 @@ export const charge = withErrorHandling(async (config, options) => {
       }),
     },
     "nagad",
-    "CHARGE_FAILED"
+    "CHARGE_FAILED",
+    { timeoutMs: config.timeoutMs }
   );
 
-  if (completeResult.reason) {
-    throw new PaymentError(
-      completeResult.reason,
-      "nagad",
-      "CHARGE_FAILED",
-      completeResult
-    );
-  }
+  assertNagadOk(completeResult, "CHARGE_FAILED", "Nagad payment failed");
 
   return {
     success: true,
@@ -167,42 +213,43 @@ export const charge = withErrorHandling(async (config, options) => {
  * @param {number} options.amount - Refund amount.
  * @param {string} [options.referenceId] - Your internal reference for the refund.
  * @param {string} [options.reason] - Reason for refund.
- * @param {object} [options.extra] - Additional params.
+ * @param {object} [options.extra] - Additional params (sent unsigned).
  * @returns {Promise<object>} Normalized refund result.
  */
 export const refund = withErrorHandling(async (config, options) => {
-  const baseUrl = getBaseUrl(config.sandbox);
+  requireOptions("nagad", options, ["transactionId"]);
+  requireAmount("nagad", options.amount);
 
-  const refundBody = {
+  const baseUrl = getBaseUrl(config);
+
+  // Signed payload: fixed key order, no caller-supplied keys. Signing
+  // `{...body, ...extra}` would make the signed bytes depend on JS key
+  // insertion order and on whatever the caller happened to pass in `extra`.
+  const signedPayload = {
     merchantId: config.merchantId,
     originalPaymentReferenceId: options.transactionId,
-    refundAmount: String(options.amount),
+    refundAmount: formatAmount(options.amount),
     referenceId: options.referenceId || `REF_${Date.now()}`,
     reason: options.reason || "Refund requested",
-    ...options.extra,
   };
 
-  const signature = signWithPrivateKey(
-    JSON.stringify(refundBody),
-    config.privateKey
-  );
+  const canonical = JSON.stringify(signedPayload);
+  const signature = signWithPrivateKey(canonical, config.privateKey);
 
   const result = await httpClient(
     `${baseUrl}/purchase/refund`,
     {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-KM-Api-Version": "v-0.2.0",
-        "X-KM-IP-V4": "127.0.0.1",
-        "X-KM-Client-Type": "PC_WEB",
-        "X-KM-SIGNATURE": signature,
-      },
-      body: JSON.stringify(refundBody),
+      headers: nagadHeaders(config, { "X-KM-SIGNATURE": signature }),
+      // Extras travel outside the signed payload so they cannot invalidate it.
+      body: JSON.stringify({ ...signedPayload, ...options.extra }),
     },
     "nagad",
-    "REFUND_FAILED"
+    "REFUND_FAILED",
+    { timeoutMs: config.timeoutMs }
   );
+
+  assertNagadOk(result, "REFUND_FAILED", "Nagad refund failed");
 
   return {
     success: true,
@@ -225,25 +272,25 @@ export const refund = withErrorHandling(async (config, options) => {
  * @returns {Promise<object>} Normalized retrieve result.
  */
 export const retrieve = withErrorHandling(async (config, options) => {
-  const baseUrl = getBaseUrl(config.sandbox);
+  requireOptions("nagad", options, ["transactionId"]);
+
+  const baseUrl = getBaseUrl(config);
 
   const result = await httpClient(
-    `${baseUrl}/verify/payment/${options.transactionId}`,
+    `${baseUrl}/verify/payment/${encodeURIComponent(options.transactionId)}`,
     {
       method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        "X-KM-Api-Version": "v-0.2.0",
-        "X-KM-IP-V4": "127.0.0.1",
-        "X-KM-Client-Type": "PC_WEB",
-      },
+      headers: nagadHeaders(config),
     },
     "nagad",
-    "RETRIEVE_FAILED"
+    "RETRIEVE_FAILED",
+    { timeoutMs: config.timeoutMs }
   );
 
+  assertNagadOk(result, "RETRIEVE_FAILED", "Nagad verification failed");
+
   return {
-    success: true,
+    success: result.status === "Success",
     transactionId:
       result.paymentRefId || result.orderId || options.transactionId,
     status: result.status || result.statusCode || "UNKNOWN",

@@ -1,5 +1,11 @@
 import { httpClient } from "../utils/http.js";
 import { withErrorHandling } from "../utils/wrapper.js";
+import {
+  requireOptions,
+  requireOneOf,
+  requireAmount,
+  formatAmount,
+} from "../utils/validate.js";
 import { PaymentError } from "../errors.js";
 
 /**
@@ -15,7 +21,25 @@ function getBaseUrl(sandbox) {
 }
 
 /**
+ * Merge caller-supplied `extra` params into a request body.
+ *
+ * @param {URLSearchParams} body
+ * @param {object} [extra]
+ */
+function mergeExtra(body, extra) {
+  if (!extra) return;
+  for (const [key, value] of Object.entries(extra)) {
+    if (value !== undefined && value !== null) {
+      body.set(key, String(value));
+    }
+  }
+}
+
+/**
  * Initialize a payment session with SSLCommerz.
+ *
+ * `transactionId` (tran_id) is the natural idempotency key — reuse it when
+ * retrying a session init.
  *
  * @param {object} config - Resolved credentials ({ storeId, storePassword, sandbox }).
  * @param {object} options
@@ -40,12 +64,22 @@ function getBaseUrl(sandbox) {
  * @returns {Promise<object>} Normalized payment result with gateway URL.
  */
 export const charge = withErrorHandling(async (config, options) => {
+  // URLSearchParams stringifies `undefined` to the literal "undefined", so a
+  // missing URL would produce a live session pointing at "https://undefined".
+  requireOptions("sslcommerz", options, [
+    "transactionId",
+    "successUrl",
+    "failUrl",
+    "cancelUrl",
+  ]);
+  requireAmount("sslcommerz", options.amount);
+
   const baseUrl = getBaseUrl(config.sandbox);
 
   const body = new URLSearchParams({
     store_id: config.storeId,
     store_passwd: config.storePassword,
-    total_amount: String(options.amount),
+    total_amount: formatAmount(options.amount),
     currency: options.currency || "BDT",
     tran_id: options.transactionId,
     success_url: options.successUrl,
@@ -64,12 +98,7 @@ export const charge = withErrorHandling(async (config, options) => {
     shipping_method: options.shippingMethod || "NO",
   });
 
-  // Merge extra params
-  if (options.extra) {
-    for (const [key, value] of Object.entries(options.extra)) {
-      body.set(key, String(value));
-    }
-  }
+  mergeExtra(body, options.extra);
 
   const result = await httpClient(
     `${baseUrl}/gwprocess/v4/api.php`,
@@ -79,7 +108,8 @@ export const charge = withErrorHandling(async (config, options) => {
       body: body.toString(),
     },
     "sslcommerz",
-    "CHARGE_FAILED"
+    "CHARGE_FAILED",
+    { timeoutMs: config.timeoutMs }
   );
 
   if (result.status !== "SUCCESS") {
@@ -117,22 +147,21 @@ export const charge = withErrorHandling(async (config, options) => {
  * @returns {Promise<object>} Normalized refund result.
  */
 export const refund = withErrorHandling(async (config, options) => {
+  requireOptions("sslcommerz", options, ["transactionId"]);
+  requireAmount("sslcommerz", options.amount);
+
   const baseUrl = getBaseUrl(config.sandbox);
 
   const body = new URLSearchParams({
     store_id: config.storeId,
     store_passwd: config.storePassword,
     bank_tran_id: options.transactionId,
-    refund_amount: String(options.amount),
+    refund_amount: formatAmount(options.amount),
     refund_remarks: options.refundRemarks || "Refund requested",
     ...(options.refundRefId && { refe_id: options.refundRefId }),
   });
 
-  if (options.extra) {
-    for (const [key, value] of Object.entries(options.extra)) {
-      body.set(key, String(value));
-    }
-  }
+  mergeExtra(body, options.extra);
 
   const result = await httpClient(
     `${baseUrl}/validator/api/merchantTransIDvalidationAPI.php`,
@@ -142,16 +171,44 @@ export const refund = withErrorHandling(async (config, options) => {
       body: body.toString(),
     },
     "sslcommerz",
-    "REFUND_FAILED"
+    "REFUND_FAILED",
+    { timeoutMs: config.timeoutMs }
   );
 
+  // `APIConnect: "DONE"` only means the API was reachable — SSLCommerz returns
+  // it alongside `status: "failed"`. Treating it as success would report a
+  // refund that never happened.
+  if (result.APIConnect !== "DONE") {
+    throw new PaymentError(
+      result.errorReason ||
+        result.APIConnect ||
+        "SSLCommerz refund API did not connect",
+      "sslcommerz",
+      "REFUND_FAILED",
+      result
+    );
+  }
+
+  const status = String(result.status || "").toLowerCase();
+
+  if (status === "failed") {
+    throw new PaymentError(
+      result.errorReason || "SSLCommerz refund failed",
+      "sslcommerz",
+      "REFUND_FAILED",
+      result
+    );
+  }
+
   return {
-    success: result.status === "success" || result.APIConnect === "DONE",
+    // "processing" is not a completed refund — report it honestly.
+    success: status === "success",
     refundId: result.refund_ref_id || null,
     transactionId: options.transactionId,
+    bankTransactionId: result.bank_tran_id || options.transactionId,
     status: result.status || "UNKNOWN",
     amount: options.amount,
-    currency: null,
+    currency: result.currency || null,
     gatewayResponse: result,
   };
 }, "sslcommerz", "REFUND_FAILED");
@@ -167,6 +224,8 @@ export const refund = withErrorHandling(async (config, options) => {
  * @returns {Promise<object>} Normalized retrieve result.
  */
 export const retrieve = withErrorHandling(async (config, options) => {
+  requireOneOf("sslcommerz", options, ["transactionId", "valId"]);
+
   const baseUrl = getBaseUrl(config.sandbox);
   const useValId = !!options.valId;
 
@@ -186,11 +245,7 @@ export const retrieve = withErrorHandling(async (config, options) => {
     endpoint = `${baseUrl}/validator/api/merchantTransIDvalidationAPI.php`;
   }
 
-  if (options.extra) {
-    for (const [key, value] of Object.entries(options.extra)) {
-      body.set(key, String(value));
-    }
-  }
+  mergeExtra(body, options.extra);
 
   const result = await httpClient(
     useValId ? `${endpoint}?${body.toString()}` : endpoint,
@@ -202,13 +257,14 @@ export const retrieve = withErrorHandling(async (config, options) => {
       }),
     },
     "sslcommerz",
-    "RETRIEVE_FAILED"
+    "RETRIEVE_FAILED",
+    { timeoutMs: config.timeoutMs }
   );
 
   const element = result.element?.[0] || result;
 
   const success = useValId
-    ? (result.status === "VALID" || result.status === "VALIDATED")
+    ? result.status === "VALID" || result.status === "VALIDATED"
     : result.APIConnect === "DONE";
 
   return {
