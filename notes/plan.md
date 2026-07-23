@@ -789,13 +789,40 @@ from the per-gateway option types is what makes cross-gateway fields an error, a
 
 ---
 
-## Open questions for the maintainer
+## Open questions — resolved
 
-1. **Was the PayPal/Payoneer removal intentional and final?** If so, phase 1 completes it. If they're coming
-   back, the registry/`ENV_MAP`/`index.d.ts` gaps should be filled rather than closed.
-2. **Is there a staging account for each gateway?** Findings #2, #9 and #23 (Nagad) and the SSLCommerz refund
-   envelope in #1 should be confirmed against live sandbox responses before release — the fixes are written
-   from the code plus published specs, not from observed traffic.
-3. **Semver stance on #11?** Restricting `resolveConfig` to known keys is technically breaking for anyone
-   relying on arbitrary passthrough. It's the right change; it just wants a minor bump plus a changelog note,
-   or a `1.x` deprecation warning followed by removal in `2.0`.
+Answered by the maintainer 2026-07-23. All work committed as `3cb132b`.
+
+1. **PayPal/Payoneer removal — final.** ✅ Not supported, not coming back. Phase 1 completed the
+   removal: registry, `ENV_MAP`, `REQUIRED_KEYS`, `index.d.ts`, the `GatewayNotFoundError` message
+   and the lockfile no longer reference them. `smoke.test.js` has a regression test asserting the
+   error message never advertises a gateway that doesn't exist, so this can't silently come back.
+
+2. **Gateway sandbox verification — deferred.** ⏸️ No credentials available now; to be tested later.
+   The affected code ships as-is and is *unverified against live gateways*:
+   - **Nagad** (#2 failure envelope, #9 timestamp zone, #23 refund signing/wire format) — written
+     from the published spec. The refund deliberately keeps the raw-body + `X-KM-SIGNATURE` shape
+     rather than being migrated to the encrypted `sensitiveData` envelope, since making that change
+     unverified risked breaking a working path.
+   - **SSLCommerz** (#1 refund response envelope, #21 `verify_sign` MD5 chain) — from the
+     documented algorithm.
+
+   **Before going live, exercise against a merchant sandbox:** a Nagad charge → refund → verify
+   cycle, an SSLCommerz refund that the gateway *rejects* (to confirm the `status: "failed"` +
+   `APIConnect: "DONE"` combination this release now treats as a failure), and one real SSLCommerz
+   IPN through `verifySslcommerzIpn()`.
+
+3. **Semver — shipped as `1.1.0`.** ✅ Accepted. Minor bump rather than a patch because two changes
+   are technically breaking: `resolveConfig()` now reads only recognised credential/transport keys
+   from per-call options (#11), and the per-gateway option types lost their `[key: string]: any`
+   index signature (#27). Both are documented under "Changed" in `CHANGELOG.md`, with `extra` as
+   the supported passthrough for anything unmodelled.
+
+---
+
+## Still outstanding
+
+- **CI matrix unexercised.** `.github/workflows/ci.yml` was verified locally on Node v24.14.0 only.
+  The Node 18/20/22 legs have never run — Node 18 especially, since test discovery relies on bare
+  `node --test`, whose directory-recursion behaviour I confirmed only on 24. First push will tell.
+- **Gateway sandbox verification**, per resolved question 2 above.
